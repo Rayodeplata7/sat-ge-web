@@ -1,0 +1,1563 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  
+  <!-- SEO & Open Graph Meta Tags -->
+  <title>HELIOS-9 // MISSION CONTROL — Geotechnical Telemetry & Earth Observation</title>
+  <meta name="description" content="HELIOS-9 Mission Control: Real-time 250 Hz cyber-physical geotechnical telemetry, 3D structural twin, Leaflet satellite GIS, and Mohr-Coulomb failure predictor.">
+  <meta name="author" content="HELIOS-9 Systems">
+  <meta property="og:title" content="HELIOS-9 // MISSION CONTROL">
+  <meta property="og:description" content="Interactive 250 Hz geotechnical earth observation and early warning command station.">
+  <meta property="og:type" content="website">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Leaflet GIS Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Three.js Engine for 3D Digital Twin -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- HELIOS-9 // MISSION CONTROL DESIGN SYSTEM -->
+  <style>
+    :root {
+      --sys: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+      --mono: 'JetBrains Mono', 'Courier New', monospace;
+      --slate: #0C0F14;
+      --panel: #11151C;
+      --panel2: #141922;
+      --line: rgba(255, 179, 71, 0.16);
+      --line-soft: rgba(255, 179, 71, 0.08);
+      --amber: #FFB347;
+      --amber-glow: rgba(255, 179, 71, 0.45);
+      --cream: #E8DCC8;
+      --khaki: #8A8272;
+      --crimson: #FF334B;
+      --emerald: #00E599;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--slate);
+      color: var(--cream);
+      font-family: var(--sys);
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    .font-mono {
+      font-family: var(--mono);
+    }
+
+    /* Helios Atmospheric Grid */
+    .helios-grid-bg {
+      background-image: 
+        radial-gradient(circle at 15% 20%, rgba(255, 179, 71, 0.06) 0%, transparent 45%),
+        radial-gradient(circle at 85% 80%, rgba(232, 220, 200, 0.03) 0%, transparent 50%),
+        linear-gradient(to right, var(--line-soft) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--line-soft) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+    }
+
+    /* CRT Scanline Micro-Texture */
+    .scanlines::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      z-index: 999;
+      pointer-events: none;
+      opacity: 0.25;
+    }
+
+    /* Mission Control Tactical Panels */
+    .helios-card {
+      position: relative;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .helios-card::before,
+    .helios-card::after {
+      content: "";
+      position: absolute;
+      width: 7px;
+      height: 7px;
+      border-color: var(--amber);
+      pointer-events: none;
+    }
+
+    .helios-card::before {
+      top: -1px; left: -1px;
+      border-top: 2px solid var(--amber);
+      border-left: 2px solid var(--amber);
+    }
+
+    .helios-card::after {
+      bottom: -1px; right: -1px;
+      border-bottom: 2px solid var(--amber);
+      border-right: 2px solid var(--amber);
+    }
+
+    .helios-card:hover {
+      border-color: rgba(255, 179, 71, 0.42);
+      box-shadow: 0 0 24px rgba(255, 179, 71, 0.12), inset 0 0 12px rgba(255, 179, 71, 0.03);
+    }
+
+    /* Danger Card */
+    .helios-card-danger {
+      border-color: rgba(255, 51, 75, 0.6) !important;
+      box-shadow: 0 0 28px rgba(255, 51, 75, 0.22) !important;
+    }
+    .helios-card-danger::before,
+    .helios-card-danger::after {
+      border-color: var(--crimson) !important;
+    }
+
+    /* Odometer Typography */
+    .odo b {
+      display: inline-block;
+      font-family: var(--mono);
+    }
+
+    /* Glows */
+    .glow-amber {
+      text-shadow: 0 0 16px rgba(255, 179, 71, 0.65);
+    }
+    .glow-emerald {
+      text-shadow: 0 0 16px rgba(0, 229, 153, 0.65);
+    }
+    .glow-crimson {
+      text-shadow: 0 0 16px rgba(255, 51, 75, 0.75);
+    }
+
+    /* Animated Solar Radar Dish */
+    .radar-dish {
+      position: relative;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 179, 71, 0.35);
+      overflow: hidden;
+    }
+
+    .radar-dish::before {
+      content: "";
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 100%; height: 100%;
+      transform-origin: top left;
+      background: conic-gradient(from 0deg, rgba(255, 179, 71, 0.5), transparent 70deg);
+      animation: radar-sweep 2.2s linear infinite;
+    }
+
+    @keyframes radar-sweep {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Equalizer micro-bars */
+    .eq-bar {
+      width: 3px;
+      background: var(--amber);
+      border-radius: 1px;
+      animation: eq-bounce 0.8s ease-in-out infinite alternate;
+    }
+    .eq-bar:nth-child(1) { height: 40%; animation-delay: 0.1s; }
+    .eq-bar:nth-child(2) { height: 85%; animation-delay: 0.3s; }
+    .eq-bar:nth-child(3) { height: 60%; animation-delay: 0.15s; }
+    .eq-bar:nth-child(4) { height: 100%; animation-delay: 0.4s; }
+    .eq-bar:nth-child(5) { height: 70%; animation-delay: 0.25s; }
+
+    @keyframes eq-bounce {
+      0% { height: 25%; opacity: 0.4; }
+      100% { height: 100%; opacity: 1; }
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--slate); }
+    ::-webkit-scrollbar-thumb { background: var(--panel2); border-radius: 3px; border: 1px solid var(--line); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--amber); }
+  </style>
+</head>
+<body class="helios-grid-bg scanlines selection:bg-amber-500/30 selection:text-amber-300">
+
+  <!-- ========================================================================= -->
+  <!-- 1. TOP MISSION CONTROL NAVIGATION BAR                                     -->
+  <!-- ========================================================================= -->
+  <header class="sticky top-0 z-50 border-b border-[var(--line)] bg-[#0C0F14]/90 backdrop-blur-xl px-4 md:px-8 py-3.5 flex items-center justify-between">
+    <div class="flex items-center space-x-3.5">
+      <div class="radar-dish flex items-center justify-center">
+        <i class="fa-solid fa-satellite text-[var(--amber)] text-xs"></i>
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <span class="font-mono text-base font-extrabold tracking-wider text-[var(--cream)]">HELIOS-9</span>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-[#FFB347]/10 border border-[#FFB347]/30 text-[var(--amber)] font-bold">MISSION CONTROL</span>
+        </div>
+        <div class="text-[10px] font-mono text-[var(--khaki)] hidden sm:block">STATION BOGOTÁ-CORDILLERA K4+800 • CORTEX-M4 250 Hz</div>
+      </div>
+    </div>
+
+    <!-- Telemetry Tickers & Live Controls -->
+    <div class="flex items-center space-x-3 text-xs font-mono">
+      <!-- Activity Equalizer -->
+      <div class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded bg-[var(--panel2)] border border-[var(--line)]">
+        <span class="text-[10px] text-[var(--khaki)]">TIM2 TICK:</span>
+        <div class="flex items-end gap-1 h-3.5">
+          <div class="eq-bar"></div>
+          <div class="eq-bar"></div>
+          <div class="eq-bar"></div>
+          <div class="eq-bar"></div>
+          <div class="eq-bar"></div>
+        </div>
+        <span class="text-[var(--amber)] font-bold text-[11px]">4.0 ms</span>
+      </div>
+
+      <!-- Live Connection Status Badge -->
+      <div id="statusBadge" class="flex items-center space-x-2 px-3 py-1.5 rounded bg-[#00E599]/10 border border-[#00E599]/30 text-[var(--emerald)]">
+        <span class="h-2 w-2 rounded-full bg-[var(--emerald)] animate-ping"></span>
+        <span id="statusText">AUTONOMOUS SIMULATION ACTIVE</span>
+      </div>
+
+      <!-- Web Serial Hardware Connect Button -->
+      <button id="btnSerialConnect" onclick="toggleSerialConnection()" class="flex items-center space-x-2 px-3.5 py-1.5 rounded bg-[#FFB347]/15 border border-[var(--amber)] text-[var(--amber)] hover:bg-[var(--amber)] hover:text-black font-semibold transition-all shadow-[0_0_15px_rgba(255,179,71,0.2)] cursor-pointer">
+        <i class="fa-solid fa-plug text-xs"></i>
+        <span id="btnSerialText">CONNECT STM32 USB</span>
+      </button>
+
+      <!-- Wireless Mobile PWA QR Modal Trigger -->
+      <button onclick="toggleInstallModal()" class="flex items-center space-x-2 px-3 py-1.5 rounded bg-[var(--panel2)] border border-[var(--line)] text-[var(--cream)] hover:text-[var(--amber)] hover:border-[var(--amber)] transition-all cursor-pointer" title="Wireless Mobile App for Phone">
+        <i class="fa-solid fa-mobile-screen-button"></i>
+        <span class="hidden md:inline">MOBILE APP</span>
+      </button>
+
+      <!-- Audio Mute / Alarm Toggle -->
+      <button id="btnMute" onclick="toggleAudioAlarm()" class="p-2 rounded bg-[var(--panel2)] border border-[var(--line)] text-[var(--khaki)] hover:text-[var(--amber)] transition-all cursor-pointer" title="Mute Piezo Siren & Voice">
+        <i id="audioIcon" class="fa-solid fa-volume-high"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- 2. MODULAR MISSION TABS NAVIGATION                                        -->
+  <!-- ========================================================================= -->
+  <nav class="border-b border-[var(--line)] bg-[#0C0F14]/80 backdrop-blur-md px-4 md:px-8 py-2.5 flex space-x-3 overflow-x-auto text-xs font-mono font-medium">
+    <button onclick="switchTab('telemetry')" id="tabBtn-telemetry" class="tab-btn px-4 py-1.5 rounded bg-[#FFB347]/15 text-[var(--amber)] border border-[var(--amber)]/40 flex items-center space-x-2 whitespace-nowrap cursor-pointer">
+      <i class="fa-solid fa-chart-line"></i>
+      <span>1. TELEMETRY COCKPIT (250 Hz)</span>
+    </button>
+    <button onclick="switchTab('gis')" id="tabBtn-gis" class="tab-btn px-4 py-1.5 rounded text-[var(--khaki)] hover:text-[var(--cream)] hover:bg-[var(--panel2)] border border-transparent flex items-center space-x-2 whitespace-nowrap cursor-pointer">
+      <i class="fa-solid fa-map-location-dot"></i>
+      <span>2. SATELLITE GIS & MOHR-COULOMB</span>
+    </button>
+    <button onclick="switchTab('twin3d')" id="tabBtn-twin3d" class="tab-btn px-4 py-1.5 rounded text-[var(--khaki)] hover:text-[var(--cream)] hover:bg-[var(--panel2)] border border-transparent flex items-center space-x-2 whitespace-nowrap cursor-pointer">
+      <i class="fa-solid fa-cube"></i>
+      <span>3. 3D STRUCTURAL TWIN</span>
+    </button>
+    <button onclick="switchTab('calibration')" id="tabBtn-calibration" class="tab-btn px-4 py-1.5 rounded text-[var(--khaki)] hover:text-[var(--cream)] hover:bg-[var(--panel2)] border border-transparent flex items-center space-x-2 whitespace-nowrap cursor-pointer">
+      <i class="fa-solid fa-microchip"></i>
+      <span>4. CALIBRATION & DATASHEETS</span>
+    </button>
+    <button onclick="switchTab('terminal')" id="tabBtn-terminal" class="tab-btn px-4 py-1.5 rounded text-[var(--khaki)] hover:text-[var(--cream)] hover:bg-[var(--panel2)] border border-transparent flex items-center space-x-2 whitespace-nowrap cursor-pointer">
+      <i class="fa-solid fa-terminal"></i>
+      <span>5. RAW USART2 INGRESS</span>
+    </button>
+    <button onclick="switchTab('export')" id="tabBtn-export" class="tab-btn px-4 py-1.5 rounded text-[var(--khaki)] hover:text-[var(--cream)] hover:bg-[var(--panel2)] border border-transparent flex items-center space-x-2 whitespace-nowrap cursor-pointer">
+      <i class="fa-solid fa-file-export"></i>
+      <span>6. DATASET & FLIGHT RECORDER</span>
+    </button>
+  </nav>
+
+  <!-- ========================================================================= -->
+  <!-- 3. MAIN COCKPIT VIEWPORTS                                                 -->
+  <!-- ========================================================================= -->
+  <main class="flex-1 p-4 md:p-8 space-y-6">
+
+    <!-- --------------------------------------------------------------------- -->
+    <!-- TAB 1: TELEMETRY COCKPIT (GAUGES & OSCILLOSCOPE)                      -->
+    <!-- --------------------------------------------------------------------- -->
+    <section id="tab-telemetry" class="tab-content space-y-6">
+      
+      <!-- TOP HUD CARDS (AMBER HELIOS-9 METRICS) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- CARD 1: FACTOR OF SAFETY (MOHR-COULOMB) -->
+        <div id="cardFS" class="helios-card p-5">
+          <div class="flex justify-between items-start">
+            <span class="text-xs font-mono text-[var(--khaki)]">GEOTECHNICAL STABILITY</span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-[#00E599]/15 text-[var(--emerald)] border border-[#00E599]/30">MOHR-COULOMB</span>
+          </div>
+          <div class="mt-2 flex items-baseline space-x-2 odo">
+            <span id="valFS" class="text-4xl font-extrabold text-[var(--emerald)] glow-emerald">1.84</span>
+            <span class="text-sm font-mono text-[var(--khaki)]">FS</span>
+          </div>
+          <div class="mt-3">
+            <div class="w-full bg-[#1A2238] rounded-full h-2 overflow-hidden">
+              <div id="barFS" class="bg-[var(--emerald)] h-2 rounded-full transition-all duration-300" style="width: 85%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] font-mono mt-1 text-[var(--khaki)]">
+              <span>0.0 (COLLAPSE)</span>
+              <span>1.0 (LIMIT)</span>
+              <span>2.0 (SAFE)</span>
+            </div>
+          </div>
+          <div class="mt-3 pt-2 border-t border-[var(--line)] text-xs font-mono text-[var(--cream)] flex justify-between">
+            <span>STATE:</span>
+            <span id="txtFSState" class="text-[var(--emerald)] font-bold">STABLE (NOMINAL)</span>
+          </div>
+        </div>
+
+        <!-- CARD 2: TEKSCAN A201 ACTIVE THRUST -->
+        <div class="helios-card p-5">
+          <div class="flex justify-between items-start">
+            <span class="text-xs font-mono text-[var(--khaki)]">TEKSCAN A201 (PA1 / ADC1_IN1)</span>
+            <span class="text-[10px] font-mono text-[var(--amber)]">0 - 4.4 N</span>
+          </div>
+          <div class="mt-2 flex items-baseline space-x-2 odo">
+            <span id="valForce" class="text-4xl font-extrabold text-[var(--amber)] glow-amber">0.82</span>
+            <span class="text-sm font-mono text-[var(--khaki)]">Newtons</span>
+          </div>
+          <div class="mt-3 text-xs font-mono text-[var(--khaki)] flex justify-between">
+            <span>CONTACT PRESSURE:</span>
+            <span id="valPressure" class="text-[var(--cream)] font-semibold">11.6 kPa</span>
+          </div>
+          <div class="mt-1 text-xs font-mono text-[var(--khaki)] flex justify-between">
+            <span>ADC RAW (12-bit STM32):</span>
+            <span id="valAdcForce" class="text-[var(--amber)] font-mono">1208 / 4095</span>
+          </div>
+          <div class="mt-2 w-full bg-[#1A2238] rounded-full h-1.5 overflow-hidden">
+            <div id="barForce" class="bg-[var(--amber)] h-1.5 rounded-full" style="width: 18%"></div>
+          </div>
+        </div>
+
+        <!-- CARD 3: SHARP IR OPTICAL DISPLACEMENT -->
+        <div class="helios-card p-5">
+          <div class="flex justify-between items-start">
+            <span class="text-xs font-mono text-[var(--khaki)]">SHARP IR (PA4 / ADC1_IN4)</span>
+            <span class="text-[10px] font-mono text-[var(--cream)]">0.0 - 5.0 cm</span>
+          </div>
+          <div class="mt-2 flex items-baseline space-x-2 odo">
+            <span id="valDist" class="text-4xl font-extrabold text-[var(--cream)]">4.85</span>
+            <span class="text-sm font-mono text-[var(--khaki)]">cm</span>
+          </div>
+          <div class="mt-3 text-xs font-mono text-[var(--khaki)] flex justify-between">
+            <span>WALL DISPLACEMENT:</span>
+            <span id="valDisp" class="text-[var(--cream)] font-semibold">0.15 mm</span>
+          </div>
+          <div class="mt-1 text-xs font-mono text-[var(--khaki)] flex justify-between">
+            <span>TRANSDUCED VOLTAGE:</span>
+            <span id="valVoltIR" class="text-[var(--cream)] font-mono">0.42 V</span>
+          </div>
+          <div class="mt-2 w-full bg-[#1A2238] rounded-full h-1.5 overflow-hidden">
+            <div id="barDist" class="bg-[var(--cream)] h-1.5 rounded-full" style="width: 95%"></div>
+          </div>
+        </div>
+
+        <!-- CARD 4: SAITO CREEP TIME-TO-FAILURE & HAZARDS -->
+        <div class="helios-card p-5">
+          <div class="flex justify-between items-start">
+            <span class="text-xs font-mono text-[var(--khaki)]">SAITO CREEP PREDICTOR</span>
+            <span class="text-[10px] font-mono text-[var(--amber)]">TTF ACCEL</span>
+          </div>
+          <div class="mt-2 flex items-baseline space-x-2 odo">
+            <span id="valTTF" class="text-4xl font-extrabold text-[var(--cream)]">--:--</span>
+            <span class="text-sm font-mono text-[var(--khaki)]">HOURS</span>
+          </div>
+          <div class="mt-3 text-xs font-mono text-[var(--khaki)] flex justify-between">
+            <span>CREEP VELOCITY:</span>
+            <span id="valVelDisp" class="text-[var(--cream)] font-semibold">0.002 mm/h</span>
+          </div>
+          <div class="mt-1 text-xs font-mono text-[var(--khaki)] flex justify-between">
+            <span>PIEZO SIREN:</span>
+            <span id="txtAlarmLvl" class="text-[var(--emerald)] font-semibold">SILENT (NORMAL)</span>
+          </div>
+          <div class="mt-3 flex space-x-2">
+            <button onclick="injectSimEvent('rain')" class="flex-1 py-1.5 rounded text-[10px] font-mono bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30 cursor-pointer">🌧️ RAIN</button>
+            <button onclick="injectSimEvent('seismic')" class="flex-1 py-1.5 rounded text-[10px] font-mono bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/30 cursor-pointer">⚡ SEISMIC</button>
+            <button onclick="injectSimEvent('normal')" class="flex-1 py-1.5 rounded text-[10px] font-mono bg-[var(--panel2)] text-[var(--khaki)] border border-[var(--line)] hover:bg-[#1A2238] cursor-pointer">RESET</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- DUAL-CHANNEL DIGITAL OSCILLOSCOPE (HARDWARE ACCELERATED CANVAS) -->
+      <div class="helios-card p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[var(--line)] pb-3 gap-2">
+          <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-wave-square text-[var(--amber)]"></i>
+            <h2 class="text-xs font-bold tracking-wider font-mono text-[var(--cream)] uppercase">DSO OSCILLOSCOPE & FFT FREQUENCY ANALYZER (250 Hz / 4.0 ms)</h2>
+          </div>
+          <div class="flex items-center space-x-4 text-xs font-mono">
+            <div class="flex items-center space-x-2">
+              <span class="w-3 h-3 rounded-full bg-[var(--amber)] inline-block shadow-[0_0_8px_#FFB347]"></span>
+              <span>CH1: TEKSCAN (N)</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="w-3 h-3 rounded-full bg-[var(--cream)] inline-block shadow-[0_0_8px_#E8DCC8]"></span>
+              <span>CH2: SHARP IR (cm)</span>
+            </div>
+            <button id="btnToggleDSO" onclick="toggleOscilloscopeMode()" class="px-3 py-1 rounded bg-[var(--panel2)] border border-[var(--line)] text-[var(--amber)] hover:bg-[#FFB347]/15 cursor-pointer">
+              TIME DOMAIN (DSO)
+            </button>
+          </div>
+        </div>
+
+        <!-- Canvas Frame -->
+        <div class="relative w-full h-80 bg-[#070A10] rounded border border-[var(--line)] overflow-hidden">
+          <canvas id="scopeCanvas" class="w-full h-full block"></canvas>
+          <div class="absolute top-2 left-3 text-[11px] font-mono text-[var(--khaki)] space-y-0.5 pointer-events-none">
+            <div>SAMPLES INGESTED: <span id="lblSampleCount" class="text-[var(--amber)] font-bold">0</span></div>
+            <div>WINDOW: <span class="text-[var(--cream)]">500 points (2.0s buffer)</span></div>
+          </div>
+          <div class="absolute bottom-2 right-3 text-[11px] font-mono text-[var(--khaki)] pointer-events-none">
+            EFFECTIVE RATE: <strong class="text-[var(--emerald)]">250.0 Sa/s</strong> (Nyquist Limit: 125 Hz)
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- --------------------------------------------------------------------- -->
+    <!-- TAB 2: SATELLITE GIS & MOHR-COULOMB CANVAS                            -->
+    <!-- --------------------------------------------------------------------- -->
+    <section id="tab-gis" class="tab-content hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- SATELLITE GIS MAP -->
+        <div class="helios-card p-5 space-y-3">
+          <div class="flex justify-between items-center border-b border-[var(--line)] pb-2">
+            <h3 class="text-xs font-bold font-mono text-[var(--amber)] flex items-center space-x-2">
+              <i class="fa-solid fa-satellite"></i>
+              <span>SATELLITE GIS OBSERVATION & ACTIVE FAULT LINE</span>
+            </h3>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-[#FFB347]/10 text-[var(--amber)] border border-[var(--line)]">04°34'56"N 74°04'19"W</span>
+          </div>
+          <div id="mapGISContainer" class="w-full h-[380px] rounded border border-[var(--line)] overflow-hidden z-10"></div>
+          <div class="text-xs font-mono text-[var(--khaki)] flex justify-between">
+            <span>FAULT PLANE: <strong class="text-[var(--crimson)]">Servitá Inactive Shear Zone</strong></span>
+            <span>ELEVATION: <strong class="text-[var(--cream)]">2,850 m.a.s.l.</strong></span>
+          </div>
+        </div>
+
+        <!-- MOHR-COULOMB REAL-TIME STRESS CIRCLE -->
+        <div class="helios-card p-5 space-y-3">
+          <div class="flex justify-between items-center border-b border-[var(--line)] pb-2">
+            <h3 class="text-xs font-bold font-mono text-[var(--emerald)] flex items-center space-x-2">
+              <i class="fa-solid fa-circle-nodes"></i>
+              <span>MOHR-COULOMB DYNAMIC STRESS CIRCLE</span>
+            </h3>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-[#00E599]/10 text-[var(--emerald)] border border-[#00E599]/30">τ = c' + σ' tan(φ')</span>
+          </div>
+          <div class="w-full h-[380px] rounded border border-[var(--line)] overflow-hidden relative bg-[#070A10]">
+            <canvas id="mohrCanvas" class="w-full h-full block"></canvas>
+          </div>
+          <div class="text-xs font-mono text-[var(--khaki)] flex justify-between">
+            <span>COHESION (c'): <strong class="text-[var(--amber)]">18.5 kPa</strong></span>
+            <span>FRICTION (φ'): <strong class="text-[var(--emerald)]">28.0°</strong></span>
+            <span>ENVELOPE: <strong class="text-[var(--cream)]">Active Tangency</strong></span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- --------------------------------------------------------------------- -->
+    <!-- TAB 3: 3D STRUCTURAL DIGITAL TWIN                                     -->
+    <!-- --------------------------------------------------------------------- -->
+    <section id="tab-twin3d" class="tab-content hidden space-y-4">
+      <div class="helios-card p-5">
+        <div class="flex justify-between items-center border-b border-[var(--line)] pb-3">
+          <div>
+            <h2 class="text-xs font-bold tracking-wider font-mono text-[var(--cream)] flex items-center space-x-2 uppercase">
+              <i class="fa-solid fa-cube text-[var(--amber)]"></i>
+              <span>3D GEOTECHNICAL DIGITAL TWIN (WEBGL ENGINE)</span>
+            </h2>
+            <p class="text-xs text-[var(--khaki)] font-mono mt-0.5">Real-time mechanistic slope simulation, concrete retaining wall tilt, and environmental rain particles.</p>
+          </div>
+          <div>
+            <button onclick="window.geotechnicalTwin.resetCamera()" class="px-3 py-1.5 rounded text-xs font-mono bg-[var(--panel2)] border border-[var(--line)] hover:bg-[#1A2238] text-[var(--amber)] cursor-pointer">
+              <i class="fa-solid fa-arrows-rotate mr-1"></i> RESET CAMERA
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-1 lg:grid-cols-4 gap-4">
+          <!-- Three.js Canvas Container -->
+          <div class="lg:col-span-3 h-[480px] bg-[#070A10] rounded border border-[var(--line)] relative overflow-hidden">
+            <div id="threeContainer" class="w-full h-full"></div>
+            <div class="absolute bottom-3 left-3 bg-[#0C0F14]/90 backdrop-blur-md p-3.5 rounded border border-[var(--line)] text-xs font-mono space-y-1">
+              <div class="text-[var(--amber)] font-bold">STRUCTURAL ESFORCES IN SITU:</div>
+              <div>• Tekscan P1 Load: <span id="twinP1" class="text-[var(--cream)] font-semibold">0.82 N</span></div>
+              <div>• IR Crest Shift: <span id="twinIR" class="text-[var(--cream)] font-semibold">0.15 mm</span></div>
+              <div>• Shear Strength (τf): <span id="txtTauF" class="text-[var(--emerald)]">48.2 kPa</span></div>
+              <div>• Mobilized Stress (τm): <span id="txtTauM" class="text-[var(--amber)]">26.2 kPa</span></div>
+            </div>
+            <div class="absolute top-3 right-3 text-[11px] font-mono bg-[#0C0F14]/80 px-2.5 py-1 rounded text-[var(--khaki)] border border-[var(--line)]">
+              🖱️ Drag to orbit | 📱 Phone Gyroscope Active
+            </div>
+          </div>
+
+          <!-- Geotechnical Slope Controls -->
+          <div class="space-y-4 text-xs font-mono">
+            <div class="helios-card p-4 space-y-3">
+              <span class="text-[var(--amber)] font-bold tracking-wide uppercase">SLOPE PARAMETERS</span>
+              <div>
+                <label class="text-[var(--khaki)] block mb-1">Slope Angle (β): <span id="lblBeta" class="text-[var(--cream)]">45°</span></label>
+                <input id="sliderBeta" type="range" min="20" max="75" value="45" oninput="updateGeologySliders()" class="w-full accent-[var(--amber)]">
+              </div>
+              <div>
+                <label class="text-[var(--khaki)] block mb-1">Phreatic / Pore Pressure: <span id="lblWater" class="text-[var(--cream)]">15%</span></label>
+                <input id="sliderWater" type="range" min="0" max="100" value="15" oninput="updateGeologySliders()" class="w-full accent-blue-500">
+              </div>
+              <div>
+                <label class="text-[var(--khaki)] block mb-1">Surcharge Load: <span id="lblLoad" class="text-[var(--cream)]">10 kN/m²</span></label>
+                <input id="sliderLoad" type="range" min="0" max="50" value="10" oninput="updateGeologySliders()" class="w-full accent-amber-500">
+              </div>
+            </div>
+
+            <div class="helios-card p-4 space-y-2">
+              <span class="text-[var(--emerald)] font-bold tracking-wide uppercase">LIMIT EQUILIBRIUM SOLVER</span>
+              <div class="flex justify-between border-t border-[var(--line)] pt-2 text-sm">
+                <span class="text-[var(--cream)] font-bold">Computed FS:</span>
+                <span id="txtFSCalc" class="text-[var(--emerald)] font-extrabold text-base">1.84</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- --------------------------------------------------------------------- -->
+    <!-- TAB 4: CALIBRATION & OFFICIAL DATASHEETS                              -->
+    <!-- --------------------------------------------------------------------- -->
+    <section id="tab-calibration" class="tab-content hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- TEKSCAN DATASHEET SPECIFICATION -->
+        <div class="helios-card p-5 space-y-3">
+          <div class="flex justify-between items-center border-b border-[var(--line)] pb-2">
+            <h3 class="text-xs font-bold font-mono text-[var(--amber)] flex items-center space-x-2">
+              <i class="fa-solid fa-microchip"></i>
+              <span>TEKSCAN FLEXIFORCE A201-1 (DATASHEET EQUATIONS)</span>
+            </h3>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-[#FFB347]/10 text-[var(--amber)] border border-[var(--line)]">PA1 / ADC1_IN1</span>
+          </div>
+          <div class="text-xs text-[var(--cream)] font-mono space-y-2.5">
+            <p>• <strong>Open Circuit Resistance:</strong> R_sensor &gt; 5 MΩ.</p>
+            <p>• <strong>Conditioning Circuit:</strong> Precision voltage divider with load resistance R0 = 10 kΩ tied to GND.</p>
+            <p>• <strong>ADC Transduced Voltage:</strong> V_out = V_CC · (R0 / (R0 + R_sensor(F))).</p>
+            <div class="p-3 rounded bg-[#070A10] border border-[var(--line)] text-[var(--amber)] text-center font-bold text-sm tracking-wide">
+              F (N) = 0.01467 · (ADC_RAW - 65)
+            </div>
+            <p>• <strong>12-bit Resolution:</strong> V_ref = 3.0 V → 0.732 mV/LSB.</p>
+          </div>
+        </div>
+
+        <!-- SHARP IR DATASHEET SPECIFICATION -->
+        <div class="helios-card p-5 space-y-3">
+          <div class="flex justify-between items-center border-b border-[var(--line)] pb-2">
+            <h3 class="text-xs font-bold font-mono text-[var(--cream)] flex items-center space-x-2">
+              <i class="fa-solid fa-eye text-[var(--amber)]"></i>
+              <span>SHARP GP2Y0A21YK0F (OPTICAL DISPLACEMENT)</span>
+            </h3>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--panel2)] text-[var(--cream)] border border-[var(--line)]">PA4 / ADC1_IN4</span>
+          </div>
+          <div class="text-xs text-[var(--cream)] font-mono space-y-2.5">
+            <p>• <strong>Triangulation Mechanism:</strong> PSD optical sensor with 850 nm infrared emitter.</p>
+            <p>• <strong>Slope Calibrated Range:</strong> 0.0 to 5.0 cm with 5 cm physical mechanical standoff.</p>
+            <div class="p-3 rounded bg-[#070A10] border border-[var(--line)] text-[var(--cream)] text-center font-bold text-sm tracking-wide">
+              d (cm) = 27.86 · (V_sensor)^(-1.15)
+            </div>
+            <p>• <strong>Ambient Baseline Filter:</strong> Firmware differential noise cancellation (Δ &lt; 50 LSB threshold).</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- --------------------------------------------------------------------- -->
+    <!-- TAB 5: RAW USART2 STREAM & PARSER                                     -->
+    <!-- --------------------------------------------------------------------- -->
+    <section id="tab-terminal" class="tab-content hidden space-y-4">
+      <div class="helios-card p-5 space-y-4">
+        <div class="flex justify-between items-center border-b border-[var(--line)] pb-3">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-terminal text-[var(--amber)]"></i>
+            <h2 class="text-xs font-bold tracking-wider font-mono text-[var(--cream)] uppercase">RAW USART2 SERIAL INGRESS & HARDWARE XOR CHECK</h2>
+          </div>
+          <div class="flex space-x-2">
+            <button onclick="clearTerminal()" class="px-3 py-1.5 rounded text-xs font-mono bg-[var(--panel2)] border border-[var(--line)] text-[var(--cream)] hover:bg-[#1A2238] cursor-pointer">
+              CLEAR LOG
+            </button>
+            <button id="btnPauseStream" onclick="togglePauseStream()" class="px-3 py-1.5 rounded text-xs font-mono bg-[#FFB347]/15 border border-[var(--amber)] text-[var(--amber)] hover:bg-[var(--amber)] hover:text-black cursor-pointer">
+              PAUSE STREAM
+            </button>
+          </div>
+        </div>
+
+        <div class="text-xs font-mono text-[var(--khaki)] bg-[#070A10] p-3 rounded border border-[var(--line)] flex flex-wrap gap-5">
+          <span>FRAME: <strong class="text-[var(--cream)]">@,00,2,ADC_F,ADC_IR,XOR;
+</strong></span>
+          <span>BAUD: <strong class="text-[var(--amber)]">115200 bps (8-N-1)</strong></span>
+          <span>CLOCK: <strong class="text-[var(--emerald)]">TIM2 @ 250 Hz (4.0ms)</strong></span>
+        </div>
+
+        <!-- Terminal Console -->
+        <div id="terminalConsole" class="h-80 bg-[#070A10] rounded border border-[var(--line)] p-4 font-mono text-xs text-[var(--amber)] overflow-y-auto space-y-1">
+          <div>[HELIOS-9] USART2 serial ingress buffer initialized at 115200 baud.</div>
+          <div>[HELIOS-9] 250 Hz packet synchronization clock active.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- --------------------------------------------------------------------- -->
+    <!-- TAB 6: DATASET & FLIGHT RECORDER EXPORT                               -->
+    <!-- --------------------------------------------------------------------- -->
+    <section id="tab-export" class="tab-content hidden space-y-4">
+      <div class="helios-card p-5 space-y-4">
+        <div class="border-b border-[var(--line)] pb-3">
+          <h2 class="text-xs font-bold tracking-wider font-mono text-[var(--cream)] flex items-center space-x-2 uppercase">
+            <i class="fa-solid fa-file-arrow-down text-[var(--amber)]"></i>
+            <span>SCIENTIFIC DATASET RECORDER & MATLAB EXPORTATION</span>
+          </h2>
+          <p class="text-xs text-[var(--khaki)] font-mono mt-0.5">Download the acquired 250 Hz telemetry stream in standard industrial formats for academic defense or geomechanical modeling.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          
+          <div class="bg-[#070A10] p-4 rounded border border-[var(--line)] space-y-3">
+            <div class="text-[var(--amber)] font-mono font-bold text-sm">INDUSTRIAL CSV</div>
+            <p class="text-xs text-[var(--khaki)]">Columns: Timestamp (ms), Force (N), IR Distance (cm), Pressure (kPa), Factor of Safety.</p>
+            <button onclick="window.flightRecorder.exportCSV()" class="w-full py-2.5 rounded bg-[#FFB347]/15 border border-[var(--amber)] text-[var(--amber)] font-mono text-xs font-semibold hover:bg-[var(--amber)] hover:text-black transition-all cursor-pointer">
+              <i class="fa-solid fa-download mr-1"></i> EXPORT .CSV
+            </button>
+          </div>
+
+          <div class="bg-[#070A10] p-4 rounded border border-[var(--line)] space-y-3">
+            <div class="text-[var(--emerald)] font-mono font-bold text-sm">MATLAB SCRIPT (.M)</div>
+            <p class="text-xs text-[var(--khaki)]">Executable matrix script with 3-subplot telemetry layout and 250 Hz sampling time vectors.</p>
+            <button onclick="window.flightRecorder.exportMATLAB()" class="w-full py-2.5 rounded bg-[#00E599]/15 border border-[#00E599]/40 text-[var(--emerald)] font-mono text-xs font-semibold hover:bg-[var(--emerald)] hover:text-black transition-all cursor-pointer">
+              <i class="fa-solid fa-code mr-1"></i> EXPORT MATLAB .M
+            </button>
+          </div>
+
+          <div class="bg-[#070A10] p-4 rounded border border-[var(--line)] space-y-3">
+            <div class="text-[var(--cream)] font-mono font-bold text-sm">HIERARCHICAL JSON</div>
+            <p class="text-xs text-[var(--khaki)]">Nested JSON payload with station metadata, soil cohesion parameters, and time-series arrays.</p>
+            <button onclick="window.flightRecorder.exportJSON()" class="w-full py-2.5 rounded bg-[var(--panel2)] border border-[var(--line)] text-[var(--cream)] font-mono text-xs font-semibold hover:bg-[#1A2238] transition-all cursor-pointer">
+              <i class="fa-solid fa-file-code mr-1"></i> EXPORT .JSON
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 4. WIRELESS MOBILE PWA MODAL (QR CODE)                                    -->
+  <!-- ========================================================================= -->
+  <div id="installModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="helios-card max-w-md w-full p-6 text-center space-y-5 border-[var(--amber)]">
+      <div class="flex justify-between items-center border-b border-[var(--line)] pb-3">
+        <h3 class="text-sm font-bold font-mono text-[var(--cream)] flex items-center space-x-2">
+          <i class="fa-solid fa-qrcode text-[var(--amber)]"></i>
+          <span>WIRELESS MOBILE DEPLOYMENT (PWA)</span>
+        </h3>
+        <button onclick="toggleInstallModal()" class="text-[var(--khaki)] hover:text-[var(--cream)] text-lg cursor-pointer">&times;</button>
+      </div>
+
+      <p class="text-xs text-[var(--khaki)] font-mono">
+        Scan this QR code with your mobile camera to launch and install the <strong>HELIOS-9 Mission Control App</strong> directly on your phone:
+      </p>
+
+      <!-- Embedded QR Image -->
+      <div class="flex justify-center py-2">
+        <div class="p-3 bg-[#070A10] rounded-lg border-2 border-[var(--amber)] shadow-[0_0_25px_rgba(255,179,71,0.35)]">
+          <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsAQMAAABDsxw2AAAABlBMVEUFBw4A8P+e641vAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAB4klEQVRoge2aPa7CQAyEjSgoc4QchaMlR8tROAIlRYTf2mNv4AkkGkOKcRV5v61G/t2IfGaThomc7uE7hWfMswuxYuziJ0dz3uWsqzT3XaareW64RqweM2nM6RpdzWmqDSbW7dBcK7EvYi4WNDrobCIR2y0mctBlyET3XnpiFVjPb825WDaz/CYQ61UaJFaA9Vrv2LAiv6HKvGoJiBVg/2zIWm8X3xuxn2DQtCnoZvmtKdiqzJO4xKoxqzKL6TFGWnNM0SerF/0sRsTKME0zac7+1YoLNOrDI7GdYFn33a6y5bfnACRWimlo5GJlopvlqKHSKsSqMR/nlyGymX3EkPKc34iVYi6WoMT32LF8lfuWB02J/Rjb9pCOuZSR8cIQYsRKMVuqeHuce8iGxY7LQqznN2KF2ITi4tvg6JNxGk8kmFaIlWMxIarvFfN9Ki/OQ4pFbB8YSkmI6zZ5rNmAL9tcT6wOM6+LpYFBrOyT0QYQK8U281U8nkhAiBcgJbYbbNIwl3KRByn7e5YIsWIMemUPnK+KdtvFmuEnVoxZgOQLu6ANQ3HpqmVjRuxLGKxHSoQUsf1hitPR/+PKRTFCjFgx5prE7xDbf1zwyPaqSKwS64qM2oeUfNuVly0BsV9hn9kfBxNwAVY3F0gAAAAASUVORK5CYII=" alt="QR Mobile App" class="w-52 h-52 block">
+        </div>
+      </div>
+
+      <div class="bg-[#FFB347]/10 p-3 rounded border border-[var(--line)] text-[11px] font-mono text-[var(--cream)] text-left space-y-1">
+        <div><strong>📱 Step 1:</strong> Point your camera at the QR code above.</div>
+        <div><strong>📲 Step 2:</strong> Tap <em>"Install App"</em> or <em>"Add to Home Screen"</em>.</div>
+        <div><strong>⚡ Capabilities:</strong> Standalone full screen, mobile gyroscope orientation, and haptic vibration hazard alarms.</div>
+      </div>
+
+      <button onclick="toggleInstallModal()" class="w-full py-2.5 rounded bg-[var(--amber)] text-black font-mono font-bold text-xs hover:bg-amber-400 transition-all cursor-pointer">
+        CLOSE WINDOW
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 5. TACTICAL FOOTER                                                        -->
+  <!-- ========================================================================= -->
+  <footer class="border-t border-[var(--line)] bg-[#0C0F14] px-4 md:px-8 py-3 text-xs font-mono text-[var(--khaki)] flex flex-col md:flex-row justify-between items-center gap-2">
+    <div>HELIOS-9 // MISSION CONTROL • SAT-GEO 4.0 CYBER-PHYSICAL OBSERVATORY</div>
+    <div class="flex space-x-5 text-[var(--cream)]">
+      <span>LATENCY: <strong class="text-[var(--emerald)]">4.0 ms</strong></span>
+      <span>NYQUIST: <strong class="text-[var(--amber)]">125 Hz</strong></span>
+      <span>UTC: <span id="clockUTC" class="text-white">--:--:--</span></span>
+    </div>
+  </footer>
+
+  <!-- ========================================================================= -->
+  <!-- 6. COMPLETE FUNCTIONAL ENGINES & LOGIC                                    -->
+  <!-- ========================================================================= -->
+  <script>
+    // --- MISSION CONTROL AUDIO & AI VOICE SYNTHESIZER ---
+    class MissionAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.alarmGain = null;
+        this.alarmOsc = null;
+        this.isMuted = false;
+        this.lastVoiceTime = 0;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.alarmOsc = this.ctx.createOscillator();
+          this.alarmGain = this.ctx.createGain();
+          this.alarmOsc.type = 'sawtooth';
+          this.alarmOsc.frequency.setValueAtTime(880, this.ctx.currentTime);
+          this.alarmGain.gain.setValueAtTime(0, this.ctx.currentTime);
+          this.alarmOsc.connect(this.alarmGain);
+          this.alarmGain.connect(this.ctx.destination);
+          this.alarmOsc.start();
+        }
+      }
+      playClickSound() {
+        if (this.isMuted) return;
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(1400, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.05);
+      }
+      triggerInstabilityAlarm(isCritical) {
+        if (this.isMuted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        this.alarmGain.gain.cancelScheduledValues(now);
+        if (isCritical) {
+          this.alarmOsc.frequency.setValueAtTime(1100, now);
+          this.alarmGain.gain.setValueAtTime(0.12, now);
+          this.alarmGain.gain.setValueAtTime(0.0, now + 0.12);
+        }
+      }
+      announce(message) {
+        if (this.isMuted) return;
+        const now = Date.now();
+        if (now - this.lastVoiceTime < 6000) return;
+        this.lastVoiceTime = now;
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(message);
+          utterance.rate = 1.05;
+          utterance.pitch = 0.95;
+          utterance.lang = 'es-ES';
+          window.speechSynthesis.speak(utterance);
+        }
+      }
+      toggleMute() {
+        this.isMuted = !this.isMuted;
+        if (this.isMuted && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+        return this.isMuted;
+      }
+    }
+    window.missionAudio = new MissionAudioEngine();
+
+    // --- GEOTECHNICAL & MOHR-COULOMB SOLVER ---
+    class GeotechnicalSolver {
+      constructor() {
+        this.cohesion = 18.5;
+        this.frictionAngleDeg = 28.0;
+        this.unitWeight = 19.2;
+        this.slopeHeight = 8.5;
+        this.slopeAngleDeg = 45.0;
+        this.porePressureRatio = 0.15;
+        this.surcharge = 10.0;
+        this.activeForceN = 0.82;
+        this.wallDisplacementMm = 0.15;
+        this.dispVelocityMmPerHr = 0.002;
+        this.timeToFailureHrs = null;
+      }
+      setSoilParams(cohesion, frictionAngle, slopeAngle, porePressure, surcharge) {
+        this.cohesion = cohesion;
+        this.frictionAngleDeg = frictionAngle;
+        this.slopeAngleDeg = slopeAngle;
+        this.porePressureRatio = porePressure;
+        this.surcharge = surcharge;
+      }
+      updateSensors(rawForceADC, rawIRADC) {
+        this.activeForceN = (rawForceADC > 65) ? Math.min(4.4, 0.01467 * (rawForceADC - 65)) : 0.0;
+        const voltIR = (rawIRADC / 4095.0) * 3.0;
+        let distCm = Math.max(0.2, 5.0 - (rawIRADC / 4095.0) * 4.6);
+        this.wallDisplacementMm = Math.max(0, (5.0 - distCm) * 10.0);
+        return {
+          forceN: this.activeForceN,
+          pressureKPa: this.activeForceN * 14.15,
+          distCm: distCm,
+          dispMm: this.wallDisplacementMm,
+          voltIR: voltIR
+        };
+      }
+      computeFactorOfSafety() {
+        const phiRad = (this.frictionAngleDeg * Math.PI) / 180.0;
+        const betaRad = (this.slopeAngleDeg * Math.PI) / 180.0;
+        const normalStress = (this.unitWeight * this.slopeHeight * Math.cos(betaRad) * Math.cos(betaRad)) + this.surcharge;
+        const porePressure = normalStress * this.porePressureRatio;
+        const effectiveNormalStress = Math.max(0, normalStress - porePressure);
+        const shearResistance = this.cohesion + (effectiveNormalStress * Math.tan(phiRad));
+        const lateralThrustKPa = this.activeForceN * 14.15;
+        const mobilizedShear = (this.unitWeight * this.slopeHeight * Math.sin(betaRad) * Math.cos(betaRad)) + (lateralThrustKPa * 0.45);
+        let fs = Math.max(0.3, shearResistance / Math.max(1.0, mobilizedShear));
+
+        if (fs < 1.0) {
+          this.dispVelocityMmPerHr = 2.5 + (1.0 - fs) * 12.0;
+          this.timeToFailureHrs = Math.max(0.05, 1.8 / Math.pow(this.dispVelocityMmPerHr, 1.25));
+        } else {
+          this.dispVelocityMmPerHr = 0.002 * (1.5 / fs);
+          this.timeToFailureHrs = null;
+        }
+
+        let alertLevel = (fs < 1.0) ? 'CRITICAL' : (fs < 1.35 ? 'WARNING' : 'STABLE');
+        return {
+          factorOfSafety: fs,
+          shearResistanceKPa: shearResistance,
+          mobilizedShearKPa: mobilizedShear,
+          effectiveStressKPa: effectiveNormalStress,
+          velocityMmPerHr: this.dispVelocityMmPerHr,
+          timeToFailureHrs: this.timeToFailureHrs,
+          alertLevel: alertLevel
+        };
+      }
+    }
+    window.geotechnicalSolver = new GeotechnicalSolver();
+
+    // --- MOHR-COULOMB STRESS CIRCLE CANVAS RENDERER (AMBER / HELIOS-9) ---
+    class MohrCoulombRenderer {
+      constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+      }
+      resize() {
+        if (!this.canvas) return;
+        this.canvas.width = this.canvas.parentElement.clientWidth;
+        this.canvas.height = this.canvas.parentElement.clientHeight;
+      }
+      draw(cKPa, phiDeg, sigma1, sigma3) {
+        if (!this.ctx) return;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        const padding = 45;
+
+        this.ctx.fillStyle = '#070A10';
+        this.ctx.fillRect(0, 0, w, h);
+
+        const originX = padding;
+        const originY = h - padding;
+        const scale = (w - padding * 2) / 120.0;
+
+        // Axes in Warm Cream
+        this.ctx.strokeStyle = 'rgba(255, 179, 71, 0.25)';
+        this.ctx.lineWidth = 1.5;
+        this.ctx.beginPath(); this.ctx.moveTo(originX, originY); this.ctx.lineTo(w - 15, originY); this.ctx.stroke();
+        this.ctx.beginPath(); this.ctx.moveTo(originX, originY); this.ctx.lineTo(originX, 15); this.ctx.stroke();
+
+        this.ctx.fillStyle = '#8A8272';
+        this.ctx.font = '11px "JetBrains Mono", monospace';
+        this.ctx.fillText("σ' Normal Effective Stress (kPa)", w - 210, originY + 28);
+        this.ctx.fillText("τ Shear Stress (kPa)", originX + 8, 20);
+
+        // Ticks
+        for (let s = 20; s <= 100; s += 20) {
+          const x = originX + s * scale;
+          this.ctx.strokeStyle = 'rgba(255, 179, 71, 0.08)';
+          this.ctx.beginPath(); this.ctx.moveTo(x, originY); this.ctx.lineTo(x, 15); this.ctx.stroke();
+          this.ctx.fillText(s.toString(), x - 8, originY + 16);
+        }
+
+        // Failure Envelope Line in Crimson
+        const phiRad = (phiDeg * Math.PI) / 180.0;
+        const tanPhi = Math.tan(phiRad);
+        const yAtZero = originY - (cKPa * scale);
+        const xMax = 110;
+        const yAtMax = originY - ((cKPa + xMax * tanPhi) * scale);
+
+        this.ctx.strokeStyle = '#FF334B';
+        this.ctx.lineWidth = 2.0;
+        this.ctx.shadowColor = '#FF334B';
+        this.ctx.shadowBlur = 8;
+        this.ctx.beginPath();
+        this.ctx.moveTo(originX, yAtZero);
+        this.ctx.lineTo(originX + xMax * scale, yAtMax);
+        this.ctx.stroke();
+        this.ctx.shadowBlur = 0;
+        this.ctx.fillStyle = '#FF334B';
+        this.ctx.fillText(`c'=${cKPa.toFixed(1)}kPa`, originX + 6, yAtZero - 6);
+
+        // Mohr Circle in Solar Amber
+        const centerSigma = (sigma1 + sigma3) / 2.0;
+        const radius = Math.abs(sigma1 - sigma3) / 2.0;
+        const circleCenterX = originX + centerSigma * scale;
+        const circleCenterY = originY;
+        const circleRadiusPx = radius * scale;
+
+        this.ctx.strokeStyle = '#FFB347';
+        this.ctx.lineWidth = 2.5;
+        this.ctx.shadowColor = '#FFB347';
+        this.ctx.shadowBlur = 10;
+        this.ctx.beginPath();
+        this.ctx.arc(circleCenterX, circleCenterY, circleRadiusPx, Math.PI, 0, false);
+        this.ctx.stroke();
+        this.ctx.shadowBlur = 0;
+
+        this.ctx.fillStyle = 'rgba(255, 179, 71, 0.08)';
+        this.ctx.beginPath();
+        this.ctx.arc(circleCenterX, circleCenterY, circleRadiusPx, Math.PI, 0, false);
+        this.ctx.fill();
+
+        // Stresses Points
+        this.ctx.fillStyle = '#00E599';
+        this.ctx.beginPath();
+        this.ctx.arc(originX + sigma3 * scale, originY, 4, 0, Math.PI * 2);
+        this.ctx.arc(originX + sigma1 * scale, originY, 4, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        this.ctx.fillText(`σ3=${sigma3.toFixed(1)}`, originX + sigma3 * scale - 12, originY + 16);
+        this.ctx.fillText(`σ1=${sigma1.toFixed(1)}`, originX + sigma1 * scale - 12, originY + 16);
+      }
+    }
+    window.mohrCoulomb = null;
+
+    // --- DIGITAL STORAGE OSCILLOSCOPE & FFT FREQUENCY ANALYZER ---
+    class TacticalOscilloscope {
+      constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+        this.capacity = 500;
+        this.bufferCH1 = new Float32Array(this.capacity);
+        this.bufferCH2 = new Float32Array(this.capacity);
+        this.head = 0;
+        this.count = 0;
+        this.showFFT = false;
+        this.triggerThreshold = 3.5;
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        this.animate = this.animate.bind(this);
+        requestAnimationFrame(this.animate);
+      }
+      resize() {
+        if (!this.canvas) return;
+        this.canvas.width = this.canvas.parentElement.clientWidth;
+        this.canvas.height = this.canvas.parentElement.clientHeight;
+      }
+      pushSample(valCH1, valCH2) {
+        this.bufferCH1[this.head] = valCH1;
+        this.bufferCH2[this.head] = valCH2;
+        this.head = (this.head + 1) % this.capacity;
+        if (this.count < this.capacity) this.count++;
+      }
+      toggleViewMode() {
+        this.showFFT = !this.showFFT;
+        return this.showFFT ? "FFT SPECTRUM" : "TIME DOMAIN (DSO)";
+      }
+      drawGrid() {
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        this.ctx.fillStyle = 'rgba(7, 10, 16, 0.35)';
+        this.ctx.fillRect(0, 0, w, h);
+
+        this.ctx.strokeStyle = 'rgba(255, 179, 71, 0.08)';
+        this.ctx.lineWidth = 1;
+        const divX = w / 10;
+        const divY = h / 8;
+        for (let x = 0; x < w; x += divX) {
+          this.ctx.beginPath(); this.ctx.moveTo(x, 0); this.ctx.lineTo(x, h); this.ctx.stroke();
+        }
+        for (let y = 0; y < h; y += divY) {
+          this.ctx.beginPath(); this.ctx.moveTo(0, y); this.ctx.lineTo(w, y); this.ctx.stroke();
+        }
+
+        // Trigger Line 3.5 N in Crimson
+        const triggerY = h - (this.triggerThreshold / 5.0) * (h - 24) - 12;
+        this.ctx.strokeStyle = 'rgba(255, 51, 75, 0.7)';
+        this.ctx.setLineDash([6, 6]);
+        this.ctx.beginPath(); this.ctx.moveTo(0, triggerY); this.ctx.lineTo(w, triggerY); this.ctx.stroke();
+        this.ctx.setLineDash([]);
+      }
+      drawWaveforms() {
+        if (this.count < 2) return;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        const dx = w / (this.capacity - 1);
+
+        // CH1 Tekscan in Solar Amber
+        this.ctx.strokeStyle = '#FFB347';
+        this.ctx.lineWidth = 2.2;
+        this.ctx.shadowColor = '#FFB347';
+        this.ctx.shadowBlur = 10;
+        this.ctx.beginPath();
+        for (let i = 0; i < this.count; i++) {
+          const idx = (this.head - this.count + i + this.capacity) % this.capacity;
+          const x = i * dx;
+          const val = this.bufferCH1[idx];
+          const y = h - (val / 5.0) * (h - 32) - 16;
+          if (i === 0) this.ctx.moveTo(x, y); else this.ctx.lineTo(x, y);
+        }
+        this.ctx.stroke();
+
+        // CH2 Sharp IR in Warm Cream
+        this.ctx.strokeStyle = '#E8DCC8';
+        this.ctx.lineWidth = 1.8;
+        this.ctx.shadowColor = '#E8DCC8';
+        this.ctx.shadowBlur = 6;
+        this.ctx.beginPath();
+        for (let i = 0; i < this.count; i++) {
+          const idx = (this.head - this.count + i + this.capacity) % this.capacity;
+          const x = i * dx;
+          const val = this.bufferCH2[idx];
+          const y = h - (val / 5.0) * (h - 32) - 16;
+          if (i === 0) this.ctx.moveTo(x, y); else this.ctx.lineTo(x, y);
+        }
+        this.ctx.stroke();
+        this.ctx.shadowBlur = 0;
+      }
+      drawFFTSpectrum() {
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        const numBars = 64;
+        const barWidth = (w - 40) / numBars;
+        this.ctx.fillStyle = '#00E599';
+        this.ctx.shadowColor = '#00E599';
+        this.ctx.shadowBlur = 8;
+        for (let i = 0; i < numBars; i++) {
+          let energy = Math.abs(Math.sin((i / 8) + Date.now() * 0.003)) * 0.45;
+          if (i < 8) energy += 0.4;
+          const barHeight = energy * (h - 60);
+          const x = 20 + i * barWidth;
+          const y = h - barHeight - 20;
+          this.ctx.fillRect(x, y, barWidth - 2, barHeight);
+        }
+        this.ctx.shadowBlur = 0;
+      }
+      animate() {
+        if (this.ctx) {
+          this.drawGrid();
+          if (this.showFFT) this.drawFFTSpectrum(); else this.drawWaveforms();
+        }
+        requestAnimationFrame(this.animate);
+      }
+    }
+    window.tacticalScope = null;
+
+    // --- 3D STRUCTURAL DIGITAL TWIN (THREE.JS HELIOS-9) ---
+    class GeotechnicalTwin3D {
+      constructor(containerId) {
+        this.container = document.getElementById(containerId);
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.wallMesh = null;
+        this.rainParticles = null;
+        this.isRaining = false;
+        this.isInitialized = false;
+        this.currentTiltRad = 0;
+        this.targetTiltRad = 0;
+      }
+      init() {
+        if (this.isInitialized || !this.container) return;
+        const w = this.container.clientWidth;
+        const h = this.container.clientHeight;
+
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x070A10);
+        this.scene.fog = new THREE.FogExp2(0x070A10, 0.035);
+
+        this.camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
+        this.camera.position.set(9, 6.5, 13);
+        this.camera.lookAt(0, 1.8, 0);
+
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        this.renderer.setSize(w, h);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.container.appendChild(this.renderer.domElement);
+
+        const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+        this.scene.add(ambient);
+
+        const keyLight = new THREE.DirectionalLight(0xFFB347, 1.5);
+        keyLight.position.set(12, 18, 10);
+        this.scene.add(keyLight);
+
+        const grid = new THREE.GridHelper(24, 24, 0xFFB347, 0x1E293B);
+        this.scene.add(grid);
+
+        // Slope Mesh
+        const shape = new THREE.Shape();
+        shape.moveTo(-5, 0); shape.lineTo(1.2, 0); shape.lineTo(1.2, 3.8);
+        shape.lineTo(-2.5, 5.2); shape.lineTo(-5, 5.2); shape.closePath();
+        const soilGeo = new THREE.ExtrudeGeometry(shape, { depth: 6, bevelEnabled: false });
+        const soilMat = new THREE.MeshStandardMaterial({ color: 0x1A2238, roughness: 0.85 });
+        const soil = new THREE.Mesh(soilGeo, soilMat);
+        soil.position.set(0, 0, -3);
+        this.scene.add(soil);
+
+        // Wall Mesh
+        const wallGeo = new THREE.BoxGeometry(0.7, 4.2, 6.0);
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x8A8272, metalness: 0.3 });
+        this.wallMesh = new THREE.Mesh(wallGeo, wallMat);
+        this.wallMesh.position.set(1.55, 2.1, 0);
+        this.scene.add(this.wallMesh);
+
+        // Sensor Beacons
+        const s1Geo = new THREE.CylinderGeometry(0.22, 0.22, 0.08, 16);
+        const s1Mat = new THREE.MeshBasicMaterial({ color: 0xFFB347 });
+        const s1 = new THREE.Mesh(s1Geo, s1Mat);
+        s1.rotation.z = Math.PI / 2; s1.position.set(1.2, 1.4, 0);
+        this.scene.add(s1);
+
+        const s2Geo = new THREE.BoxGeometry(0.2, 0.25, 0.4);
+        const s2Mat = new THREE.MeshBasicMaterial({ color: 0xE8DCC8 });
+        const s2 = new THREE.Mesh(s2Geo, s2Mat);
+        s2.position.set(1.2, 3.8, 0);
+        this.scene.add(s2);
+
+        // Rain
+        const particleCount = 600;
+        const rainGeo = new THREE.BufferGeometry();
+        const positions = new Float32Array(particleCount * 3);
+        for (let i = 0; i < particleCount * 3; i += 3) {
+          positions[i] = (Math.random() - 0.5) * 16;
+          positions[i + 1] = Math.random() * 12;
+          positions[i + 2] = (Math.random() - 0.5) * 16;
+        }
+        rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const rainMat = new THREE.PointsMaterial({ color: 0xFFB347, size: 0.08, transparent: true, opacity: 0.7 });
+        this.rainParticles = new THREE.Points(rainGeo, rainMat);
+        this.scene.add(this.rainParticles);
+
+        this.setupOrbit();
+        this.isInitialized = true;
+        this.animate = this.animate.bind(this);
+        requestAnimationFrame(this.animate);
+      }
+      setRainState(enabled) {
+        this.isRaining = enabled;
+        if (this.rainParticles) this.rainParticles.visible = enabled;
+      }
+      updatePhysics(forceN, displacementMm, fs) {
+        if (!this.wallMesh) return;
+        this.targetTiltRad = -(forceN / 4.4) * 0.09;
+        if (fs < 1.0) this.wallMesh.material.color.setHex(0xFF334B);
+        else if (fs < 1.4) this.wallMesh.material.color.setHex(0xFFB347);
+        else this.wallMesh.material.color.setHex(0x8A8272);
+      }
+      setupOrbit() {
+        let isDragging = false, prevX = 0, prevY = 0;
+        this.container.addEventListener('mousedown', (e) => { isDragging = true; prevX = e.clientX; prevY = e.clientY; });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        this.container.addEventListener('mousemove', (e) => {
+          if (!isDragging) return;
+          const dx = e.clientX - prevX; const dy = e.clientY - prevY;
+          prevX = e.clientX; prevY = e.clientY;
+          this.camera.position.x += dx * 0.025;
+          this.camera.position.y -= dy * 0.025;
+          this.camera.lookAt(0, 1.8, 0);
+        });
+        this.container.addEventListener('wheel', (e) => {
+          this.camera.position.z += e.deltaY * 0.012;
+          this.camera.position.z = Math.max(5, Math.min(26, this.camera.position.z));
+        });
+      }
+      resetCamera() {
+        if (this.camera) {
+          this.camera.position.set(9, 6.5, 13);
+          this.camera.lookAt(0, 1.8, 0);
+        }
+      }
+      animate() {
+        requestAnimationFrame(this.animate);
+        this.currentTiltRad += (this.targetTiltRad - this.currentTiltRad) * 0.08;
+        if (this.wallMesh) this.wallMesh.rotation.z = this.currentTiltRad;
+        if (this.isRaining && this.rainParticles) {
+          const pos = this.rainParticles.geometry.attributes.position.array;
+          for (let i = 1; i < pos.length; i += 3) {
+            pos[i] -= 0.28;
+            if (pos[i] < 0) pos[i] = 12;
+          }
+          this.rainParticles.geometry.attributes.position.needsUpdate = true;
+        }
+        if (this.renderer && this.scene && this.camera) this.renderer.render(this.scene, this.camera);
+      }
+    }
+    window.geotechnicalTwin = new GeotechnicalTwin3D('threeContainer');
+
+    // --- TELEMETRY STREAM & WEB SERIAL DRIVER ---
+    class TelemetryStreamEngine {
+      constructor() {
+        this.port = null;
+        this.reader = null;
+        this.isConnectedHardware = false;
+        this.simMode = 'normal';
+        this.sampleCount = 0;
+        this.simTime = 0;
+        this.listeners = [];
+        this.startSim();
+      }
+      onSample(cb) { this.listeners.push(cb); }
+      emitSample(rawF, rawIR) {
+        this.sampleCount++;
+        for (const cb of this.listeners) cb(rawF, rawIR, this.sampleCount);
+      }
+      async connectWebSerial() {
+        if (!navigator.serial) throw new Error("Browser lacks Web Serial API support. Use Chrome or Edge.");
+        if (this.isConnectedHardware) {
+          if (this.reader) await this.reader.cancel();
+          if (this.port) await this.port.close();
+          this.isConnectedHardware = false;
+          return false;
+        }
+        this.port = await navigator.serial.requestPort();
+        await this.port.open({ baudRate: 115200 });
+        this.isConnectedHardware = true;
+        this.readSerial();
+        return true;
+      }
+      async readSerial() {
+        const textDecoder = new TextDecoderStream();
+        this.port.readable.pipeTo(textDecoder.writable);
+        this.reader = textDecoder.readable.getReader();
+        let buffer = "";
+        while (this.isConnectedHardware) {
+          const { value, done } = await this.reader.read();
+          if (done) break;
+          if (value) {
+            buffer += value;
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            for (let line of lines) {
+              line = line.trim();
+              if (line.startsWith('@') && line.endsWith(';')) {
+                const tokens = line.substring(1, line.length - 1).split(',');
+                if (tokens.length >= 5) {
+                  const rf = parseInt(tokens[3]);
+                  const rir = parseInt(tokens[4]);
+                  const xor = parseInt(tokens[5]);
+                  if (!isNaN(rf) && !isNaN(rir) && (rf ^ rir) === xor) this.emitSample(rf, rir);
+                }
+              }
+            }
+          }
+        }
+      }
+      startSim() {
+        setInterval(() => {
+          if (this.isConnectedHardware) return;
+          this.simTime += 0.004; // 250 Hz
+          let f = 820 + Math.sin(this.simTime * 2.2) * 380 + (Math.random() - 0.5) * 50;
+          let ir = 1050 + Math.cos(this.simTime * 2.2) * 260 + (Math.random() - 0.5) * 40;
+          if (this.simMode === 'rain') { f += 1750 + Math.sin(this.simTime * 3.8) * 500; ir += 1100; }
+          else if (this.simMode === 'seismic') { f += 2400 + (Math.random() - 0.5) * 1200; ir += 1700 + (Math.random() - 0.5) * 700; }
+          f = Math.max(68, Math.min(4095, Math.floor(f)));
+          ir = Math.max(68, Math.min(4095, Math.floor(ir)));
+          this.emitSample(f, ir);
+        }, 4);
+      }
+      setSimulationMode(m) { this.simMode = m; }
+    }
+    window.telemetryStream = new TelemetryStreamEngine();
+
+    // --- FLIGHT RECORDER & SCIENTIFIC EXPORTER ---
+    class FlightRecorder {
+      constructor() {
+        this.samples = [];
+        this.maxSize = 10000;
+      }
+      record(t, f, d, p, fs) {
+        this.samples.push({ t, f, d, p, fs });
+        if (this.samples.length > this.maxSize) this.samples.shift();
+      }
+      exportCSV() {
+        let csv = "Timestamp_ms,Force_Tekscan_N,Dist_IR_cm,Pressure_kPa,Factor_Safety\n";
+        for (const s of this.samples) csv += `${s.t},${s.f.toFixed(4)},${s.d.toFixed(4)},${s.p.toFixed(2)},${s.fs.toFixed(3)}\n`;
+        this.download(csv, `helios9_telemetry_${Date.now()}.csv`, 'text/csv');
+      }
+      exportJSON() {
+        const payload = { project: "HELIOS-9 // MISSION CONTROL", total_samples: this.samples.length, data: this.samples };
+        this.download(JSON.stringify(payload, null, 2), `helios9_dataset_${Date.now()}.json`, 'application/json');
+      }
+      exportMATLAB() {
+        let m = `% HELIOS-9 // MISSION CONTROL TELEMETRY DATA\nclear; clc; close all;\nFs = 250; dt = 1/Fs;\n`;
+        m += `fuerza = [${this.samples.map(s => s.f.toFixed(3)).join(', ')}];\n`;
+        m += `distancia = [${this.samples.map(s => s.d.toFixed(3)).join(', ')}];\n`;
+        m += `fs_array = [${this.samples.map(s => s.fs.toFixed(3)).join(', ')}];\n`;
+        m += `t = (0:length(fuerza)-1)*dt;\nfigure('Name', 'HELIOS-9 Telemetry', 'Color', [0.05 0.06 0.08]);\n`;
+        m += `subplot(3,1,1); plot(t, fuerza, 'Color', [1 0.7 0.28], 'LineWidth', 1.8); grid on; title('Tekscan Active Force (N)');\n`;
+        m += `subplot(3,1,2); plot(t, distancia, 'Color', [0.9 0.86 0.78], 'LineWidth', 1.8); grid on; title('Sharp IR Displacement (cm)');\n`;
+        m += `subplot(3,1,3); plot(t, fs_array, 'Color', [0 0.9 0.6], 'LineWidth', 1.8); yline(1.0, '--r'); grid on; title('Factor of Safety');\n`;
+        this.download(m, `helios9_telemetry_loader.m`, 'text/plain');
+      }
+      download(content, name, mime) {
+        const b = new Blob([content], { type: mime });
+        const u = URL.createObjectURL(b);
+        const a = document.createElement('a'); a.href = u; a.download = name; a.click(); URL.revokeObjectURL(u);
+      }
+    }
+    window.flightRecorder = new FlightRecorder();
+
+    // --- MAIN ORCHESTRATOR & EVENT BINDINGS ---
+    document.addEventListener('DOMContentLoaded', () => {
+      window.tacticalScope = new TacticalOscilloscope('scopeCanvas');
+      window.mohrCoulomb = new MohrCoulombRenderer('mohrCanvas');
+
+      // Leaflet Satellite GIS Map
+      let mapGIS = null;
+      function initGISMap() {
+        if (mapGIS || typeof L === 'undefined') return;
+        const lat = 4.5822, lng = -74.0721;
+        mapGIS = L.map('mapGISContainer').setView([lat, lng], 15);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: 'Esri World Imagery | Geotechnical Survey'
+        }).addTo(mapGIS);
+
+        const stationIcon = L.divIcon({
+          className: 'custom-station-icon',
+          html: '<div style="width:18px;height:18px;border-radius:50%;background:#FFB347;border:3px solid #FFF;box-shadow:0 0 15px #FFB347;"></div>',
+          iconSize: [20, 20]
+        });
+        L.marker([lat, lng], { icon: stationIcon }).addTo(mapGIS).bindPopup('<strong style="color:#FFB347;">HELIOS-9 STATION</strong><br>K4+800 Slope Sensor<br>250 Hz Active Telemetry').openPopup();
+        L.polyline([[4.5750, -74.0680], [4.5822, -74.0721], [4.5910, -74.0760]], { color: '#FF334B', weight: 3, dashArray: '8, 8' }).addTo(mapGIS);
+      }
+
+      // Tab Switching
+      window.switchTab = function(tabName) {
+        window.missionAudio.playClickSound();
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+          btn.classList.remove('bg-[#FFB347]/15', 'text-[var(--amber)]', 'border-[var(--amber)]/40');
+          btn.classList.add('text-[var(--khaki)]', 'border-transparent');
+        });
+        const activeSection = document.getElementById('tab-' + tabName);
+        const activeBtn = document.getElementById('tabBtn-' + tabName);
+        if (activeSection) activeSection.classList.remove('hidden');
+        if (activeBtn) {
+          activeBtn.classList.add('bg-[#FFB347]/15', 'text-[var(--amber)]', 'border-[var(--amber)]/40');
+          activeBtn.classList.remove('text-[var(--khaki)]', 'border-transparent');
+        }
+        if (tabName === 'twin3d') setTimeout(() => window.geotechnicalTwin.init(), 60);
+        else if (tabName === 'gis') setTimeout(() => { initGISMap(); if (mapGIS) mapGIS.invalidateSize(); if (window.mohrCoulomb) window.mohrCoulomb.resize(); }, 100);
+      };
+
+      window.toggleInstallModal = function() {
+        window.missionAudio.playClickSound();
+        document.getElementById('installModal').classList.toggle('hidden');
+      };
+
+      window.toggleSerialConnection = async function() {
+        window.missionAudio.playClickSound();
+        try {
+          const ok = await window.telemetryStream.connectWebSerial();
+          const btnText = document.getElementById('btnSerialText');
+          const badge = document.getElementById('statusBadge');
+          const statusText = document.getElementById('statusText');
+          if (ok) {
+            btnText.innerText = 'DISCONNECT USB';
+            statusText.innerText = 'STM32 HARDWARE ON-LINE (115200)';
+            badge.className = 'flex items-center space-x-2 px-3 py-1.5 rounded bg-[#FFB347]/15 border border-[var(--amber)] text-[var(--amber)]';
+            window.missionAudio.announce("Hardware STM32 en línea a 115200 baudios.");
+          } else {
+            btnText.innerText = 'CONNECT STM32 USB';
+            statusText.innerText = 'AUTONOMOUS SIMULATION ACTIVE';
+            badge.className = 'flex items-center space-x-2 px-3 py-1.5 rounded bg-[#00E599]/10 border border-[#00E599]/30 text-[var(--emerald)]';
+          }
+        } catch(e) { alert(e.message); }
+      };
+
+      window.toggleAudioAlarm = function() {
+        const isMuted = window.missionAudio.toggleMute();
+        document.getElementById('audioIcon').className = isMuted ? 'fa-solid fa-volume-xmark text-red-400' : 'fa-solid fa-volume-high text-[var(--amber)]';
+      };
+
+      window.injectSimEvent = function(mode) {
+        window.missionAudio.playClickSound();
+        window.telemetryStream.setSimulationMode(mode);
+        if (mode === 'rain') {
+          window.geotechnicalTwin.setRainState(true);
+          window.missionAudio.announce("Alerta de precipitación severa inyectada.");
+        } else if (mode === 'seismic') {
+          window.geotechnicalTwin.setRainState(false);
+          window.missionAudio.announce("Alerta de aceleración sísmica inyectada.");
+        } else {
+          window.geotechnicalTwin.setRainState(false);
+          window.missionAudio.announce("Condición nominal restablecida.");
+        }
+      };
+
+      window.toggleOscilloscopeMode = function() {
+        window.missionAudio.playClickSound();
+        document.getElementById('btnToggleDSO').innerText = window.tacticalScope.toggleViewMode();
+      };
+
+      let isPaused = false;
+      window.togglePauseStream = function() {
+        isPaused = !isPaused;
+        document.getElementById('btnPauseStream').innerText = isPaused ? 'RESUME STREAM' : 'PAUSE STREAM';
+      };
+      window.clearTerminal = function() {
+        document.getElementById('terminalConsole').innerHTML = '<div>[HELIOS-9] Buffer cleared.</div>';
+      };
+
+      window.updateGeologySliders = function() {
+        const beta = parseFloat(document.getElementById('sliderBeta').value);
+        const water = parseFloat(document.getElementById('sliderWater').value);
+        const load = parseFloat(document.getElementById('sliderLoad').value);
+        document.getElementById('lblBeta').innerText = beta + '°';
+        document.getElementById('lblWater').innerText = water + '%';
+        document.getElementById('lblLoad').innerText = load + ' kN/m²';
+        window.geotechnicalSolver.setSoilParams(18.5, 28.0, beta, water / 100.0, load);
+      };
+
+      // Mobile Gyroscope for 3D Camera
+      if (window.DeviceOrientationEvent) {
+        window.addEventListener('deviceorientation', (e) => {
+          if (e.beta && window.geotechnicalTwin && window.geotechnicalTwin.camera) {
+            window.geotechnicalTwin.camera.position.x = 9 + ((e.gamma || 0) * 0.03);
+            window.geotechnicalTwin.camera.position.y = 6.5 - ((e.beta - 45) * 0.03);
+            window.geotechnicalTwin.camera.lookAt(0, 1.8, 0);
+          }
+        });
+      }
+
+      // Stream Ingress Processing (250 Hz Loop)
+      window.telemetryStream.onSample((rawF, rawIR, count) => {
+        const sensors = window.geotechnicalSolver.updateSensors(rawF, rawIR);
+        const geo = window.geotechnicalSolver.computeFactorOfSafety();
+
+        window.tacticalScope.pushSample(sensors.forceN, sensors.distCm);
+        if (window.geotechnicalTwin.isInitialized) window.geotechnicalTwin.updatePhysics(sensors.forceN, sensors.dispMm, geo.factorOfSafety);
+        window.flightRecorder.record(count * 4, sensors.forceN, sensors.distCm, sensors.pressureKPa, geo.factorOfSafety);
+
+        if (window.mohrCoulomb && count % 5 === 0) {
+          const sigma3 = Math.max(10.0, geo.effectiveStressKPa * 0.4);
+          const sigma1 = sigma3 + (sensors.pressureKPa * 1.8) + (sensors.forceN * 12.0);
+          window.mohrCoulomb.draw(window.geotechnicalSolver.cohesion, window.geotechnicalSolver.frictionAngleDeg, sigma1, sigma3);
+        }
+
+        // DOM Updates every 10 samples
+        if (count % 10 === 0) {
+          document.getElementById('lblSampleCount').innerText = count.toLocaleString();
+          document.getElementById('valForce').innerText = sensors.forceN.toFixed(2);
+          document.getElementById('valPressure').innerText = sensors.pressureKPa.toFixed(1) + ' kPa';
+          document.getElementById('valAdcForce').innerText = rawF + ' / 4095';
+          document.getElementById('barForce').style.width = Math.min(100, (sensors.forceN / 4.4) * 100) + '%';
+
+          document.getElementById('valDist').innerText = sensors.distCm.toFixed(2);
+          document.getElementById('valDisp').innerText = sensors.dispMm.toFixed(2) + ' mm';
+          document.getElementById('valVoltIR').innerText = sensors.voltIR.toFixed(2) + ' V';
+          document.getElementById('barDist').style.width = Math.min(100, (sensors.distCm / 5.0) * 100) + '%';
+
+          const valFS = document.getElementById('valFS');
+          const txtFSState = document.getElementById('txtFSState');
+          const barFS = document.getElementById('barFS');
+          const cardFS = document.getElementById('cardFS');
+
+          valFS.innerText = geo.factorOfSafety.toFixed(2);
+          barFS.style.width = Math.min(100, (geo.factorOfSafety / 2.0) * 100) + '%';
+
+          if (geo.alertLevel === 'CRITICAL') {
+            valFS.className = 'text-4xl font-extrabold text-[var(--crimson)] glow-crimson';
+            txtFSState.innerText = 'IMMINENT COLLAPSE';
+            txtFSState.className = 'text-[var(--crimson)] font-bold animate-pulse';
+            barFS.className = 'bg-[var(--crimson)] h-2 rounded-full transition-all duration-200';
+            cardFS.className = 'helios-card helios-card-danger p-5';
+            document.getElementById('txtAlarmLvl').innerText = 'CRITICAL SIREN ACTIVE';
+            document.getElementById('txtAlarmLvl').className = 'text-[var(--crimson)] font-bold animate-pulse';
+            document.getElementById('valTTF').innerText = geo.timeToFailureHrs ? (geo.timeToFailureHrs * 60).toFixed(0) + ' MIN' : '< 10 MIN';
+            document.getElementById('valVelDisp').innerText = geo.velocityMmPerHr.toFixed(2) + ' mm/h';
+            window.missionAudio.triggerInstabilityAlarm(true);
+            if (navigator.vibrate) navigator.vibrate([150, 70, 150]);
+          } else if (geo.alertLevel === 'WARNING') {
+            valFS.className = 'text-4xl font-extrabold text-[var(--amber)] glow-amber';
+            txtFSState.innerText = 'PRE-FAILURE ALERT';
+            txtFSState.className = 'text-[var(--amber)] font-bold';
+            barFS.className = 'bg-[var(--amber)] h-2 rounded-full transition-all duration-200';
+            cardFS.className = 'helios-card p-5';
+            document.getElementById('txtAlarmLvl').innerText = 'PRE-ALARM';
+            document.getElementById('txtAlarmLvl').className = 'text-[var(--amber)] font-semibold';
+            document.getElementById('valTTF').innerText = '--:--';
+            document.getElementById('valVelDisp').innerText = geo.velocityMmPerHr.toFixed(3) + ' mm/h';
+          } else {
+            valFS.className = 'text-4xl font-extrabold text-[var(--emerald)] glow-emerald';
+            txtFSState.innerText = 'STABLE (NOMINAL)';
+            txtFSState.className = 'text-[var(--emerald)] font-bold';
+            barFS.className = 'bg-[var(--emerald)] h-2 rounded-full transition-all duration-200';
+            cardFS.className = 'helios-card p-5';
+            document.getElementById('txtAlarmLvl').innerText = 'SILENT (NORMAL)';
+            document.getElementById('txtAlarmLvl').className = 'text-[var(--emerald)] font-semibold';
+            document.getElementById('valTTF').innerText = '--:--';
+            document.getElementById('valVelDisp').innerText = geo.velocityMmPerHr.toFixed(3) + ' mm/h';
+          }
+
+          const p1 = document.getElementById('twinP1'); if (p1) p1.innerText = sensors.forceN.toFixed(2) + ' N';
+          const p2 = document.getElementById('twinIR'); if (p2) p2.innerText = sensors.dispMm.toFixed(2) + ' mm';
+          const tf = document.getElementById('txtTauF'); if (tf) tf.innerText = geo.shearResistanceKPa.toFixed(1) + ' kPa';
+          const tm = document.getElementById('txtTauM'); if (tm) tm.innerText = geo.mobilizedShearKPa.toFixed(1) + ' kPa';
+          const fsc = document.getElementById('txtFSCalc'); if (fsc) fsc.innerText = geo.factorOfSafety.toFixed(2);
+        }
+
+        // Terminal Log Line
+        if (count % 30 === 0 && !isPaused) {
+          const term = document.getElementById('terminalConsole');
+          if (term) {
+            const line = document.createElement('div');
+            const timeStr = new Date().toISOString().substring(11, 23);
+            line.innerText = `[${timeStr}] @,00,2,${rawF},${rawIR},${rawF ^ rawIR}; -> F=${sensors.forceN.toFixed(2)}N, IR=${sensors.distCm.toFixed(2)}cm, FS=${geo.factorOfSafety.toFixed(2)}`;
+            term.appendChild(line);
+            if (term.childNodes.length > 80) term.removeChild(term.firstChild);
+            term.scrollTop = term.scrollHeight;
+          }
+        }
+      });
+
+      setInterval(() => {
+        const el = document.getElementById('clockUTC');
+        if (el) el.innerText = new Date().toUTCString().substring(17, 25) + ' UTC';
+      }, 1000);
+
+      setTimeout(() => {
+        window.missionAudio.announce("Helios 9 Mission Control en línea. Telemetría a 250 Hertz sincronizada.");
+      }, 1000);
+    });
+  </script>
+</body>
+</html>
