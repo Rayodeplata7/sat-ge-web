@@ -256,17 +256,19 @@
           <!-- Top Verdict -->
           <div class="flex items-start justify-between gap-4">
             <div class="space-y-2">
-              <span id="badgeOpState" class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400">
-                <i class="fa-solid fa-circle-check text-[10px]"></i> Terreno Seguro
+              <span id="badgeOpState" class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-amber-500/15 text-amber-400">
+                <i class="fa-solid fa-plug-circle-exclamation text-[10px]"></i> Desconectado
               </span>
               <h1 id="txtOperatorTitle" class="font-display text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight">
-                Estabilidad Óptima
+                Sin Lectura de Sensores
               </h1>
               <p id="txtOperatorAction" class="text-sm text-[var(--text-muted)] leading-relaxed">
-                El terreno presenta firmeza normal. Sin saturación de agua ni movimiento peligroso en el muro.
+                Conecta tu módulo ESP32 por USB o Wi-Fi para visualizar mediciones reales del talud.
               </p>
             </div>
           </div>
+
+          <div id="sensorDiagBanner" class="hidden p-3 bg-amber-500/10 border border-amber-500/35 text-xs text-amber-300 space-y-1"></div>
 
           <!-- Radial Gauge Visual -->
           <div class="flex items-center gap-6 py-2">
@@ -274,11 +276,11 @@
               <svg class="w-full h-full -rotate-90" viewBox="0 0 120 120">
                 <circle cx="60" cy="60" r="50" fill="none" stroke="var(--border)" stroke-width="9" />
                 <circle id="gaugeArc" class="gauge-arc" cx="60" cy="60" r="50" fill="none"
-                  stroke="#10B981" stroke-width="9" stroke-linecap="round"
-                  stroke-dasharray="314.16" stroke-dashoffset="75" />
+                  stroke="#64748B" stroke-width="9" stroke-linecap="round"
+                  stroke-dasharray="314.16" stroke-dashoffset="314.16" />
               </svg>
               <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span id="valOpFS" class="font-num text-3xl font-bold leading-none">1.55</span>
+                <span id="valOpFS" class="font-num text-3xl font-bold leading-none">--</span>
                 <span class="text-[11px] text-[var(--text-muted)] mt-1">Factor FS</span>
               </div>
             </div>
@@ -286,11 +288,11 @@
             <div class="space-y-2 text-xs flex-1">
               <div class="flex justify-between py-1.5 border-b border-[var(--border)]">
                 <span class="text-[var(--text-muted)]">Estado del muro</span>
-                <span id="txtFSState" class="font-semibold text-emerald-400">Seguro (≥ 1.35)</span>
+                <span id="txtFSState" class="font-semibold text-amber-400">Sin señal</span>
               </div>
               <div class="flex justify-between py-1.5 border-b border-[var(--border)]">
                 <span class="text-[var(--text-muted)]">Margen estimado</span>
-                <span id="valTTF" class="font-num font-semibold">Estable</span>
+                <span id="valTTF" class="font-num font-semibold">--</span>
               </div>
               <div class="flex justify-between py-1.5">
                 <span class="text-[var(--text-muted)]">Ubicación</span>
@@ -368,7 +370,7 @@
             <i class="fa-solid fa-shield-halved text-xs text-emerald-400"></i>
           </div>
           <div class="my-3 flex items-baseline gap-1.5">
-            <span id="valFS" class="font-num text-3xl font-bold">1.55</span>
+            <span id="valFS" class="font-num text-3xl font-bold">--</span>
             <span class="text-xs text-[var(--text-muted)]">índice</span>
           </div>
           <canvas id="sparkFS" class="w-full h-10 block"></canvas>
@@ -382,7 +384,7 @@
             <i class="fa-solid fa-droplet text-xs text-sky-400"></i>
           </div>
           <div class="my-3 flex items-baseline gap-1.5">
-            <span id="valMoisture" class="font-num text-3xl font-bold">20.0</span>
+            <span id="valMoisture" class="font-num text-3xl font-bold">--</span>
             <span class="text-xs text-[var(--text-muted)]">%</span>
           </div>
           <canvas id="sparkHum" class="w-full h-10 block"></canvas>
@@ -396,11 +398,11 @@
             <i class="fa-solid fa-compass-drafting text-xs text-amber-400"></i>
           </div>
           <div class="my-3 flex items-baseline gap-1.5">
-            <span id="valTilt" class="font-num text-3xl font-bold">0.22</span>
+            <span id="valTilt" class="font-num text-3xl font-bold">--</span>
             <span class="text-xs text-[var(--text-muted)]">°</span>
           </div>
           <canvas id="sparkTilt" class="w-full h-10 block"></canvas>
-          <p class="mt-2 text-[11px] text-[var(--text-muted)]">Vibración actual: <span id="valVib" class="font-num">0.04</span> g</p>
+          <p class="mt-2 text-[11px] text-[var(--text-muted)]">Vibración actual: <span id="valVib" class="font-num">--</span> g</p>
         </div>
 
         <!-- Card 4: Grieta -->
@@ -410,11 +412,11 @@
             <i class="fa-solid fa-arrows-left-right text-xs text-slate-300"></i>
           </div>
           <div class="my-3 flex items-baseline gap-1.5">
-            <span id="valDisp" class="font-num text-3xl font-bold">0.8</span>
+            <span id="valDisp" class="font-num text-3xl font-bold">--</span>
             <span class="text-xs text-[var(--text-muted)]">mm</span>
           </div>
           <canvas id="sparkDisp" class="w-full h-10 block"></canvas>
-          <p class="mt-2 text-[11px] text-[var(--text-muted)]">Empuje sobre muro: <span id="valForce" class="font-num">0.20</span> N</p>
+          <p class="mt-2 text-[11px] text-[var(--text-muted)]">Empuje sobre muro: <span id="valForce" class="font-num">--</span> N</p>
         </div>
 
       </div>
@@ -1291,6 +1293,24 @@
         document.getElementById('btnConnectWifi').textContent = 'Conectar Wi-Fi';
         document.getElementById('btnToggleSimMode').innerHTML = '<i class="fa-solid fa-flask text-sky-400"></i> Modo Prueba: OFF';
         document.getElementById('simControlsBox').classList.add('hidden');
+        document.getElementById('sensorDiagBanner').classList.add('hidden');
+
+        document.getElementById('valOpFS').textContent = '--';
+        document.getElementById('valFS').textContent = '--';
+        document.getElementById('valMoisture').textContent = '--';
+        document.getElementById('valTilt').textContent = '--';
+        document.getElementById('valVib').textContent = '--';
+        document.getElementById('valDisp').textContent = '--';
+        document.getElementById('valForce').textContent = '--';
+        document.getElementById('valTTF').textContent = '--';
+        document.getElementById('txtFSState').className = 'font-semibold text-amber-400';
+        document.getElementById('txtFSState').textContent = 'Sin señal';
+        document.getElementById('gaugeArc').style.stroke = '#64748B';
+        document.getElementById('gaugeArc').style.strokeDashoffset = '314.16';
+        document.getElementById('badgeOpState').className = 'inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-amber-500/15 text-amber-400';
+        document.getElementById('badgeOpState').innerHTML = '<i class="fa-solid fa-plug-circle-exclamation text-[10px]"></i> Desconectado';
+        document.getElementById('txtOperatorTitle').textContent = 'Sin Lectura de Sensores';
+        document.getElementById('txtOperatorAction').textContent = 'Conecta tu módulo ESP32 por USB o Wi-Fi para visualizar mediciones reales del talud.';
       }
       startSim() {
         this.stopAll(); this.mode = 'SIM';
@@ -1331,6 +1351,24 @@
     // 8. UI UPDATES & INTERACTIVITY
     // =========================================================================
     stream.onSample = (fsr, ir, soil, ax, ay, az) => {
+      // Diagnóstico real por sensor cuando hay hardware conectado
+      const diagBanner = document.getElementById('sensorDiagBanner');
+      if (stream.mode !== 'SIM') {
+        const issues = [];
+        if (ax === 0 && ay === 0 && Math.abs(az) < 20) issues.push('ADXL345 sin respuesta I2C (revisar GPIO21/22 y CS a 3.3V)');
+        if (soil >= 3980 || soil <= 20) issues.push(`Sonda Humedad desconectada o fuera de rango (ADC=${soil})`);
+        if (fsr >= 3980) issues.push(`Sensor FSR saturado/en corto (ADC=${fsr})`);
+        if (ir >= 3980) issues.push(`Sensor IR fuera de rango (ADC=${ir})`);
+        if (issues.length > 0) {
+          diagBanner.classList.remove('hidden');
+          diagBanner.innerHTML = '<strong>Anomalía física detectada en sensores:</strong><br>' + issues.map(i => `• ${i}`).join('<br>');
+        } else {
+          diagBanner.classList.add('hidden');
+        }
+      } else {
+        diagBanner.classList.add('hidden');
+      }
+
       const ch = geoSolver.processChannels(fsr, ir, soil, ax, ay, az);
       const res = geoSolver.computeFactorOfSafety(ch.force, ch.dispMm, ch.hum, ch.tiltDeg, ch.vibG);
 

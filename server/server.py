@@ -278,26 +278,19 @@ def serial_worker():
                         state["raw_soil"] = int(round(3800.0 - (state["hum"] / 100.0) * 2600.0))
                         state["acc_z"] = int(round(256.0 + state["vib"] * 256.0))
                     elif not state["cable_fault"]:
-                        # Terreno normal con micro fluctuaciones naturales
-                        state["hum"] = max(10.0, min(100.0, round(state["hum"] + (os.urandom(1)[0]/255.0 - 0.5)*0.2, 1)))
-                        state["force"] = max(0.0, min(4.4, round(state["force"] + (os.urandom(1)[0]/255.0 - 0.5)*0.02, 2)))
-                        state["disp"] = max(0.0, min(25.0, round(state["disp"] + (os.urandom(1)[0]/255.0 - 0.5)*0.05, 1)))
-                        state["vib"] = max(0.01, min(1.5, round(0.03 + (os.urandom(1)[0]/255.0)*0.03, 2)))
-                        state["raw_fsr"] = int(round(65.0 + (state["force"] / 0.01467)))
-                        state["raw_ir"] = int(round(((5.0 - max(0.2, 5.0 - state["disp"] / 10.0)) / 4.6) * 4095.0))
-                        state["raw_soil"] = int(round(3800.0 - (state["hum"] / 100.0) * 2600.0))
-                        state["acc_x"] = 1
-                        state["acc_y"] = 0
-                        state["acc_z"] = 256
-                        state["tilt"] = 0.22
+                        # Sin hardware conectado y sin simulación activa: reportar DESCONECTADO (cero datos inventados)
+                        state["port"] = "SIN HARDWARE"
+                        state["status"] = "DESCONECTADO"
+                        state["ttf"] = "--"
                         sim_t = 0.0
 
-                fs, status, ttf = compute_geotech(
-                    state["hum"], state["force"], state["disp"], state["vib"], state["cable_fault"]
-                )
-                state["fs"] = fs
-                state["status"] = status
-                state["ttf"] = ttf
+                if read_success or state["sim_storm"] or state["cable_fault"]:
+                    fs, status, ttf = compute_geotech(
+                        state["hum"], state["force"], state["disp"], state["vib"], state["cable_fault"]
+                    )
+                    state["fs"] = fs
+                    state["status"] = status
+                    state["ttf"] = ttf
                 state["last_update"] = datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
             # Guardar en base de datos cada 2 segundos (no saturar)
