@@ -1356,9 +1356,9 @@
       if (stream.mode !== 'SIM') {
         const issues = [];
         if (ax === 0 && ay === 0 && Math.abs(az) < 20) issues.push('ADXL345 sin respuesta I2C (revisar GPIO21/22 y CS a 3.3V)');
-        if (soil >= 3980 || soil <= 20) issues.push(`Sonda Humedad desconectada o fuera de rango (ADC=${soil})`);
-        if (fsr >= 3980) issues.push(`Sensor FSR saturado/en corto (ADC=${fsr})`);
-        if (ir >= 3980) issues.push(`Sensor IR fuera de rango (ADC=${ir})`);
+        if (soil <= 15 || soil >= 4090) issues.push(`Sonda Humedad desconectada o en corto (ADC=${soil})`);
+        if (fsr >= 4090) issues.push(`Sensor FSR saturado/en corto (ADC=${fsr})`);
+        if (ir >= 4090) issues.push(`Sensor IR fuera de rango (ADC=${ir})`);
         if (issues.length > 0) {
           diagBanner.classList.remove('hidden');
           diagBanner.innerHTML = '<strong>Anomalía física detectada en sensores:</strong><br>' + issues.map(i => `• ${i}`).join('<br>');
@@ -1531,8 +1531,9 @@
     }
 
     function toggleDemoSim() {
+      audioEngine.init();
       if (stream.mode === 'SIM') {
-        stream.startIdle();
+        stream.autoDetectLocalServer(false).then(ok => { if (!ok) stream.startIdle(); });
       } else {
         stream.startSim();
       }

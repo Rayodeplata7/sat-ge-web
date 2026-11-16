@@ -182,8 +182,15 @@ def serial_worker():
             line = ""
             if ser and ser.is_open:
                 try:
-                    line = ser.readline().decode('utf-8', errors='ignore').strip()
-                    if line.startswith("@") and line.endswith(";"):
+                    while ser.in_waiting > 0:
+                        candidate = ser.readline().decode('utf-8', errors='ignore').strip()
+                        if candidate.startswith("@") and candidate.endswith(";"):
+                            line = candidate
+                    if not line:
+                        candidate = ser.readline().decode('utf-8', errors='ignore').strip()
+                        if candidate.startswith("@") and candidate.endswith(";"):
+                            line = candidate
+                    if line:
                         clean = line[1:-1].strip()
                         if clean.startswith(","):
                             clean = clean[1:]
@@ -197,23 +204,21 @@ def serial_worker():
                             try:
                                 rx_xor = int(parts[8], 16)
                             except ValueError:
-                                continue
-                            if calc_xor != rx_xor:
-                                continue
-                            raw_f = int(float(parts[2]))     # FSR-406 (GPIO34)
-                            raw_ir = int(float(parts[3]))    # IR P/N 1102 (GPIO35)
-                            raw_soil = int(float(parts[4]))  # Sonda Suelo (GPIO32)
-                            acc_x = int(float(parts[5]))     # ADXL345 X
-                            acc_y = int(float(parts[6]))     # ADXL345 Y
-                            acc_z = int(float(parts[7]))     # ADXL345 Z
-                            
-                            f = round(min(4.4, (raw_f - 65.0) * 0.01467), 2) if raw_f > 65 else 0.0
-                            h = round(max(5.0, min(100.0, ((3800.0 - raw_soil) / 2600.0) * 100.0)), 1)
-                            dist_cm = max(0.2, 5.0 - (raw_ir / 4095.0) * 4.6)
-                            d = round(max(0.0, (5.0 - dist_cm) * 10.0), 2)
-                            v = round(abs((acc_z / 256.0) - 1.0), 3)
-                            tilt_deg = round(math.atan2(math.hypot(acc_x, acc_y), max(1.0, abs(acc_z))) * (180.0 / math.pi), 2)
-                            read_success = True
+                                rx_xor = -1
+                            if calc_xor == rx_xor:
+                                raw_f = int(float(parts[2]))     # FSR-406 (GPIO34)
+                                raw_ir = int(float(parts[3]))    # IR P/N 1102 (GPIO35)
+                                raw_soil = int(float(parts[4]))  # Sonda Suelo (GPIO32)
+                                acc_x = int(float(parts[5]))     # ADXL345 X
+                                acc_y = int(float(parts[6]))     # ADXL345 Y
+                                acc_z = int(float(parts[7]))     # ADXL345 Z
+                                f = round(min(4.4, (raw_f - 65.0) * 0.01467), 2) if raw_f > 65 else 0.0
+                                h = round(max(5.0, min(100.0, ((3800.0 - raw_soil) / 2600.0) * 100.0)), 1)
+                                dist_cm = max(0.2, 5.0 - (raw_ir / 4095.0) * 4.6)
+                                d = round(max(0.0, (5.0 - dist_cm) * 10.0), 2)
+                                v = round(abs((acc_z / 256.0) - 1.0), 3)
+                                tilt_deg = round(math.atan2(math.hypot(acc_x, acc_y), max(1.0, abs(acc_z))) * (180.0 / math.pi), 2)
+                                read_success = True
                         elif len(parts) >= 6 and parts[0] == "00" and parts[1] == "4":
                             # Protocolo SAT-GEO 4 Canales
                             raw_f = float(parts[2])

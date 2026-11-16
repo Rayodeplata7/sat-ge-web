@@ -85,10 +85,9 @@ bool initADXL345() {
   if (Wire.endTransmission() != 0) return false;
 
   Wire.requestFrom(ADXL345_I2C_ADDR, 1);
-  if (Wire.available()) {
-    uint8_t devId = Wire.read();
-    if (devId != 0xE5) return false;
-  }
+  if (!Wire.available()) return false;
+  uint8_t devId = Wire.read();
+  if (devId != 0xE5) return false;
 
   // Rango +-4g con Full Resolution
   Wire.beginTransmission(ADXL345_I2C_ADDR);
@@ -121,10 +120,10 @@ void readADXL345() {
       return;
     }
   }
-  // Valores estables por defecto si no hay respuesta
-  acc_x = 28;
-  acc_y = -14;
-  acc_z = 256;
+  // Cero explícito si el ADXL345 está desconectado o sin respuesta I2C (cero datos inventados)
+  acc_x = 0;
+  acc_y = 0;
+  acc_z = 0;
 }
 
 void setup() {
@@ -231,8 +230,10 @@ void loop() {
     uint8_t xorChk = calculateXOR(payload);
     snprintf(packetBuffer, sizeof(packetBuffer), "@,%s,%02X;\r\n", payload, xorChk);
 
-    // 4. Transmisión Serial a PC por USB a 115200 baudios
-    Serial.print(packetBuffer);
+    // 4. Transmisión Serial no bloqueante (50 Hz @ 115200 baud, muestreo interno a 250 Hz)
+    if (sampleCounter % 5 == 0) {
+      Serial.print(packetBuffer);
+    }
 
     // Toggle Heartbeat LED
     if (sampleCounter % 125 == 0) {
