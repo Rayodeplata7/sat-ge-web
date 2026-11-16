@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#030306">
+  <title>SAT-GEO — Monitoreo Inteligente de Taludes | PiraquivePropTech</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-icon" href="img/icon-192.png">
+
+  <!-- Tailwind + Typography -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Raleway:wght@600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #030306;
+      --surface: rgba(15, 17, 26, 0.78);
+      --surface-solid: #0D0F17;
+      --surface-2: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.09);
+      --border-strong: rgba(255, 255, 255, 0.22);
+      --text: #FFFFFF;
+      --text-muted: #94A3B8;
+      --accent: #FFFFFF;
+      --accent-inv: #000000;
+      --ok: #10B981;
+      --warn: #F59E0B;
+      --crit: #EF4444;
+      --ambient: rgba(16, 185, 129, 0.14);
+      --shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+    }
+
+    body.theme-light {
+      --bg: #F3F5F8;
+      --surface: rgba(255, 255, 255, 0.92);
+      --surface-solid: #FFFFFF;
+      --surface-2: #EEF2F6;
+      --border: rgba(15, 23, 42, 0.09);
+      --border-strong: rgba(15, 23, 42, 0.22);
+      --text: #0F172A;
+      --text-muted: #475569;
+      --accent: #000000;
+      --accent-inv: #FFFFFF;
+      --ambient: rgba(16, 185, 129, 0.10);
+      --shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+    }
+
+    * { box-sizing: border-box; }
+    html {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: radial-gradient(ellipse 80% 45% at 50% -10%, var(--ambient), transparent 70%);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      transition: background-color 0.35s ease, color 0.25s ease;
+    }
+
+    .font-display { font-family: 'Raleway', 'Inter', sans-serif; }
+    .font-num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+
+    /* Tactile Glass Surface + Monopo Sharp Precision */
+    .glass-card {
+      background: var(--surface);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid var(--border);
+      border-radius: 0px;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.3s ease;
+    }
+    .glass-card-interactive:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-2px);
+    }
+
+    .pill-btn {
+      border-radius: 75px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px 18px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      white-space: nowrap;
+    }
+    .pill-btn:active { transform: scale(0.97); }
+
+    .pill-primary {
+      background: var(--accent);
+      color: var(--accent-inv);
+      border: 1px solid var(--accent);
+    }
+    .pill-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    .pill-ghost {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .pill-ghost:hover { border-color: var(--border-strong); }
+
+    /* Segmented Pill Nav */
+    .seg-wrap {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 75px;
+      padding: 4px;
+      display: inline-flex;
+      gap: 4px;
+    }
+    .seg-btn {
+      border-radius: 75px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 18px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .seg-btn:hover { color: var(--text); }
+    .seg-btn.active {
+      background: var(--accent);
+      color: var(--accent-inv);
+    }
+
+    /* Custom Range Slider */
+    input[type="range"].sat-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"].sat-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 9999px;
+      background: var(--accent);
+      border: 2px solid var(--bg);
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+    input[type="range"].sat-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+    .pulse-ring {
+      position: relative;
+    }
+    .pulse-ring::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 9999px;
+      border: 1.5px solid currentColor;
+      opacity: 0.45;
+      animation: softPulse 2.2s ease-out infinite;
+    }
+    @keyframes softPulse {
+      0% { transform: scale(0.9); opacity: 0.65; }
+      100% { transform: scale(1.7); opacity: 0; }
+    }
+
+    .gauge-arc {
+      transition: stroke-dashoffset 0.45s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.35s ease;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-strong); }
+  </style>
+</head>
+<body class="selection:bg-white selection:text-black">
+
+  <!-- CLEAN EXECUTIVE HEADER -->
+  <header class="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--bg)]/85 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+
+      <!-- Brand -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-[var(--accent)] text-[var(--accent-inv)] flex items-center justify-center font-display font-extrabold text-sm tracking-tight shrink-0">
+          SG
+        </div>
+        <div>
+          <div class="font-display font-bold text-base tracking-tight leading-none">
+            SAT-GEO <span class="font-normal text-xs text-[var(--text-muted)] ml-1">Alerta Temprana</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-1">
+            <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-400 text-emerald-400 pulse-ring inline-block"></span>
+            <span id="txtConnectionStatus">Modo Interactivo · Sector K4+800</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Segmented Navigation -->
+      <nav class="seg-wrap order-3 lg:order-2 w-full lg:w-auto justify-center overflow-x-auto">
+        <button onclick="switchTab('overview')" id="tabBtn-overview" class="seg-btn active">
+          <i class="fa-solid fa-shield-halved mr-1.5 text-xs"></i>Resumen en Vivo
+        </button>
+        <button onclick="switchTab('analysis')" id="tabBtn-analysis" class="seg-btn">
+          <i class="fa-solid fa-chart-line mr-1.5 text-xs"></i>Mapas y Señales
+        </button>
+        <button onclick="switchTab('connect')" id="tabBtn-connect" class="seg-btn">
+          <i class="fa-solid fa-plug mr-1.5 text-xs"></i>Conectar y Descargas
+        </button>
+      </nav>
+
+      <!-- Action Pills -->
+      <div class="flex items-center gap-2 order-2 lg:order-3">
+        <button id="btnMute" onclick="toggleAudioAlarm()" class="pill-btn pill-ghost" title="Activar o silenciar voz y alarma">
+          <i class="fa-solid fa-volume-high text-xs"></i>
+          <span class="hidden sm:inline">Voz y Alarma</span>
+        </button>
+        <button id="btnThemeToggle" onclick="toggleTheme()" class="pill-btn pill-ghost" title="Cambiar modo visual">
+          <i id="iconTheme" class="fa-solid fa-sun text-xs"></i>
+          <span id="lblTheme" class="hidden sm:inline">Modo Claro</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+
+    <!-- ==================== TAB 1: RESUMEN EN VIVO ==================== -->
+    <section id="tab-overview" class="tab-content space-y-6">
+
+      <!-- HERO ROW: LIVE SAFETY GAUGE + INTERACTIVE 3D TWIN -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+
+        <!-- Left: Executive Safety Verdict + Radial Gauge + Interactive Controls -->
+        <div class="lg:col-span-5 glass-card p-6 sm:p-7 flex flex-col justify-between space-y-6">
+
+          <!-- Top Verdict -->
+          <div class="flex items-start justify-between gap-4">
+            <div class="space-y-2">
+              <span id="badgeOpState" class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400">
+                <i class="fa-solid fa-circle-check text-[10px]"></i> Terreno Seguro
+              </span>
+              <h1 id="txtOperatorTitle" class="font-display text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight">
+                Estabilidad Óptima
+              </h1>
+              <p id="txtOperatorAction" class="text-sm text-[var(--text-muted)] leading-relaxed">
+                El terreno presenta firmeza normal. Sin saturación de agua ni movimiento peligroso en el muro.
+              </p>
+            </div>
+          </div>
+
+          <!-- Radial Gauge Visual -->
+          <div class="flex items-center gap-6 py-2">
+            <div class="relative w-32 h-32 shrink-0 flex items-center justify-center">
+              <svg class="w-full h-full -rotate-90" viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="50" fill="none" stroke="var(--border)" stroke-width="9" />
+                <circle id="gaugeArc" class="gauge-arc" cx="60" cy="60" r="50" fill="none"
+                  stroke="#10B981" stroke-width="9" stroke-linecap="round"
+                  stroke-dasharray="314.16" stroke-dashoffset="75" />
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span id="valOpFS" class="font-num text-3xl font-bold leading-none">1.55</span>
+                <span class="text-[11px] text-[var(--text-muted)] mt-1">Factor FS</span>
+              </div>
+            </div>
+
+            <div class="space-y-2 text-xs flex-1">
+              <div class="flex justify-between py-1.5 border-b border-[var(--border)]">
+                <span class="text-[var(--text-muted)]">Estado del muro</span>
+                <span id="txtFSState" class="font-semibold text-emerald-400">Seguro (≥ 1.35)</span>
+              </div>
+              <div class="flex justify-between py-1.5 border-b border-[var(--border)]">
+                <span class="text-[var(--text-muted)]">Margen estimado</span>
+                <span id="valTTF" class="font-num font-semibold">Estable</span>
+              </div>
+              <div class="flex justify-between py-1.5">
+                <span class="text-[var(--text-muted)]">Ubicación</span>
+                <span class="font-medium">Sector K4+800</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Simulator Controls (For easy live demonstration) -->
+          <div class="p-4 bg-[var(--surface-2)] border border-[var(--border)] space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold">Simulador Interactivo de Clima</span>
+              <span id="lblRainIntensity" class="font-num text-[var(--text-muted)]">0% Lluvia</span>
+            </div>
+            <input id="sliderRain" type="range" min="0" max="100" value="0" class="sat-slider" oninput="onRainSlider(this.value)">
+            <div class="flex flex-wrap gap-2 pt-1">
+              <button onclick="setQuickScenario('normal')" class="pill-btn pill-ghost py-1.5 px-3 text-xs">
+                <i class="fa-solid fa-sun text-amber-400"></i> Día Normal
+              </button>
+              <button onclick="setQuickScenario('rain')" class="pill-btn pill-ghost py-1.5 px-3 text-xs">
+                <i class="fa-solid fa-cloud-showers-heavy text-sky-400"></i> Lluvia Fuerte
+              </button>
+              <button onclick="setQuickScenario('seismic')" class="pill-btn pill-ghost py-1.5 px-3 text-xs">
+                <i class="fa-solid fa-wave-square text-red-400"></i> Sismo
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right: Interactive 3D Slope Twin -->
+        <div class="lg:col-span-7 glass-card flex flex-col overflow-hidden">
+          <div class="px-5 py-4 border-b border-[var(--border)] flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-bold">Gemelo Digital 3D del Talud</h2>
+              <p class="text-xs text-[var(--text-muted)]">Observa en vivo cómo el agua, la lluvia y la inclinación afectan el muro</p>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button onclick="setTwinView('overview')" class="pill-btn pill-ghost py-1 px-3 text-xs">General</button>
+              <button onclick="setTwinView('wall')" class="pill-btn pill-ghost py-1 px-3 text-xs">Muro</button>
+              <button onclick="toggleAutoOrbit()" id="btnAutoOrbit" class="pill-btn pill-ghost py-1 px-3 text-xs">
+                <i class="fa-solid fa-rotate text-[10px]"></i> Auto-Girar
+              </button>
+            </div>
+          </div>
+
+          <div class="relative flex-1 min-h-[360px] sm:min-h-[430px] bg-[#05070B]">
+            <div id="threeContainer" class="w-full h-full"></div>
+
+            <!-- Clean Floating Legend -->
+            <div class="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+              <div class="px-3 py-1.5 bg-black/65 backdrop-blur-md text-[11px] text-slate-200 flex items-center gap-3">
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-sky-400"></span> Nivel de agua</span>
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-slate-300"></span> Muro</span>
+                <span class="flex items-center gap-1.5"><span id="twinBeaconDot" class="w-2 h-2 rounded-full bg-emerald-400"></span> Baliza</span>
+              </div>
+              <div class="px-3 py-1.5 bg-black/65 backdrop-blur-md text-[11px] text-slate-300">
+                Arrastra para rotar · Rueda para zoom
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 4 DYNAMIC METRIC CARDS WITH LIVE SPARKLINES -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <!-- Card 1: Estabilidad -->
+        <div class="glass-card glass-card-interactive p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-[var(--text-muted)]">Estabilidad (FS)</span>
+            <i class="fa-solid fa-shield-halved text-xs text-emerald-400"></i>
+          </div>
+          <div class="my-3 flex items-baseline gap-1.5">
+            <span id="valFS" class="font-num text-3xl font-bold">1.55</span>
+            <span class="text-xs text-[var(--text-muted)]">índice</span>
+          </div>
+          <canvas id="sparkFS" class="w-full h-10 block"></canvas>
+          <p class="mt-2 text-[11px] text-[var(--text-muted)]">Ideal mayor a 1.35. Menor a 1.00 indica riesgo.</p>
+        </div>
+
+        <!-- Card 2: Humedad -->
+        <div class="glass-card glass-card-interactive p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-[var(--text-muted)]">Humedad del Suelo</span>
+            <i class="fa-solid fa-droplet text-xs text-sky-400"></i>
+          </div>
+          <div class="my-3 flex items-baseline gap-1.5">
+            <span id="valMoisture" class="font-num text-3xl font-bold">20.0</span>
+            <span class="text-xs text-[var(--text-muted)]">%</span>
+          </div>
+          <canvas id="sparkHum" class="w-full h-10 block"></canvas>
+          <p class="mt-2 text-[11px] text-[var(--text-muted)]">Mide qué tan saturada de agua está la tierra.</p>
+        </div>
+
+        <!-- Card 3: Inclinación -->
+        <div class="glass-card glass-card-interactive p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-[var(--text-muted)]">Inclinación del Muro</span>
+            <i class="fa-solid fa-compass-drafting text-xs text-amber-400"></i>
+          </div>
+          <div class="my-3 flex items-baseline gap-1.5">
+            <span id="valTilt" class="font-num text-3xl font-bold">0.22</span>
+            <span class="text-xs text-[var(--text-muted)]">°</span>
+          </div>
+          <canvas id="sparkTilt" class="w-full h-10 block"></canvas>
+          <p class="mt-2 text-[11px] text-[var(--text-muted)]">Vibración actual: <span id="valVib" class="font-num">0.04</span> g</p>
+        </div>
+
+        <!-- Card 4: Grieta -->
+        <div class="glass-card glass-card-interactive p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-[var(--text-muted)]">Apertura de Grieta</span>
+            <i class="fa-solid fa-arrows-left-right text-xs text-slate-300"></i>
+          </div>
+          <div class="my-3 flex items-baseline gap-1.5">
+            <span id="valDisp" class="font-num text-3xl font-bold">0.8</span>
+            <span class="text-xs text-[var(--text-muted)]">mm</span>
+          </div>
+          <canvas id="sparkDisp" class="w-full h-10 block"></canvas>
+          <p class="mt-2 text-[11px] text-[var(--text-muted)]">Empuje sobre muro: <span id="valForce" class="font-num">0.20</span> N</p>
+        </div>
+
+      </div>
+
+      <!-- RECENT ALERTS TIMELINE -->
+      <div class="glass-card">
+        <div class="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
+          <div>
+            <h2 class="text-sm font-bold">Registro de Alertas</h2>
+            <p class="text-xs text-[var(--text-muted)]">Cada cambio importante del terreno queda guardado automáticamente con la hora exacta</p>
+          </div>
+          <button onclick="clearEventLog()" class="pill-btn pill-ghost py-1.5 px-3 text-xs">Limpiar</button>
+        </div>
+        <div id="eventLogList" class="divide-y divide-[var(--border)] max-h-52 overflow-y-auto text-sm"></div>
+      </div>
+
+    </section>
+
+    <!-- ==================== TAB 2: MAPAS Y SEÑALES ==================== -->
+    <section id="tab-analysis" class="tab-content hidden space-y-6">
+
+      <div class="glass-card p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-base font-bold">Comportamiento de Sensores en el Tiempo</h2>
+            <p class="text-xs text-[var(--text-muted)]">Curva continua de humedad, empuje, grieta e inclinación</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-4 text-xs">
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Empuje (N)</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-white border border-slate-500"></span> Grieta (mm)</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span> Humedad (%)</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Inclinación (°)</span>
+            <button id="btnToggleDSO" onclick="toggleOscilloscopeMode()" class="pill-btn pill-ghost py-1.5 px-3 text-xs">
+              Vista: Tiempo Real
+            </button>
+          </div>
+        </div>
+        <div class="relative w-full h-72 bg-[#070A10] border border-[var(--border)] overflow-hidden">
+          <canvas id="scopeCanvas" class="w-full h-full block"></canvas>
+          <div class="absolute top-2.5 left-3 text-[11px] font-num !text-slate-300 pointer-events-none">
+            Muestras: <span id="lblSampleCount" class="text-amber-400 font-bold">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass-card p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-bold">Mapa de Ubicación</h2>
+              <p class="text-xs text-[var(--text-muted)]">Sector K4+800 · Cordillera Oriental</p>
+            </div>
+            <span class="text-xs font-semibold text-emerald-400">Punto Activo</span>
+          </div>
+          <div id="mapGIS" class="w-full h-72 border border-[var(--border)] bg-[#070A10]"></div>
+        </div>
+
+        <div class="glass-card p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-bold">Análisis de Esfuerzo del Suelo</h2>
+              <p class="text-xs text-[var(--text-muted)]">Modelo geotécnico Mohr-Coulomb en tiempo real</p>
+            </div>
+            <span class="text-xs font-num text-[var(--text-muted)]">c' 24 kPa · φ' 32°</span>
+          </div>
+          <div class="w-full h-72 border border-[var(--border)] bg-[#070A10] relative">
+            <canvas id="mohrCanvas" class="w-full h-full block"></canvas>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==================== TAB 3: CONECTAR Y DESCARGAS ==================== -->
+    <section id="tab-connect" class="tab-content hidden space-y-6">
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="glass-card glass-card-interactive p-6 flex flex-col justify-between space-y-4">
+          <div class="space-y-2">
+            <div class="w-10 h-10 bg-[var(--surface-2)] border border-[var(--border)] flex items-center justify-center">
+              <i class="fa-brands fa-usb text-base"></i>
+            </div>
+            <h3 class="text-lg font-bold">Conectar por Cable USB</h3>
+            <p class="text-sm text-[var(--text-muted)] leading-relaxed">
+              Conecta la estación ESP32 a tu computador usando Chrome o Edge para recibir los datos reales al instante.
+            </p>
+          </div>
+          <button id="btnConnectUSB" onclick="toggleSerialConnection()" class="pill-btn pill-primary w-full justify-center">
+            Conectar USB
+          </button>
+        </div>
+
+        <div class="glass-card glass-card-interactive p-6 flex flex-col justify-between space-y-4">
+          <div class="space-y-2">
+            <div class="w-10 h-10 bg-[var(--surface-2)] border border-[var(--border)] flex items-center justify-center">
+              <i class="fa-solid fa-wifi text-base"></i>
+            </div>
+            <h3 class="text-lg font-bold">Conectar por Wi-Fi</h3>
+            <p class="text-sm text-[var(--text-muted)] leading-relaxed">
+              Únete a la red Wi-Fi del equipo (<strong>HELIOS-9-MISSION-CONTROL</strong>) y presiona conectar.
+            </p>
+            <input id="inputWifiIp" type="text" value="192.168.4.1" class="w-full px-3 py-2 text-sm font-num bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text)] focus:outline-none focus:border-[var(--text)]" placeholder="192.168.4.1">
+          </div>
+          <button id="btnConnectWifi" onclick="toggleWifiConnection()" class="pill-btn pill-ghost w-full justify-center">
+            Conectar Wi-Fi
+          </button>
+        </div>
+
+        <div class="glass-card glass-card-interactive p-6 flex flex-col justify-between space-y-4">
+          <div class="space-y-2">
+            <div class="w-10 h-10 bg-[var(--surface-2)] border border-[var(--border)] flex items-center justify-center">
+              <i class="fa-solid fa-mobile-screen text-base"></i>
+            </div>
+            <h3 class="text-lg font-bold">App Web y Servidor</h3>
+            <p class="text-sm text-[var(--text-muted)] leading-relaxed">
+              Instala esta página como aplicación en tu celular o computador, o enlaza con el servidor local.
+            </p>
+          </div>
+          <div class="flex flex-col gap-2">
+            <button onclick="autoDetectLocalServer(true)" class="pill-btn pill-ghost w-full justify-center">Buscar Servidor Local</button>
+            <button id="btnInstallPWA" onclick="installPWA()" class="pill-btn pill-ghost w-full justify-center">Instalar App Web</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="connectFeedback" class="hidden glass-card px-5 py-3 text-sm"></div>
+
+      <div class="glass-card p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h3 class="text-base font-bold">Descargar Reportes de Medición</h3>
+          <p class="text-xs text-[var(--text-muted)]">Exporta las mediciones capturadas en tu sesión para informes</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="exportData('csv')" class="pill-btn pill-ghost">Excel / CSV</button>
+          <button onclick="exportData('json')" class="pill-btn pill-ghost">JSON</button>
+          <button onclick="exportData('matlab')" class="pill-btn pill-ghost">MATLAB (.m)</button>
+        </div>
+      </div>
+
+      <div class="glass-card p-6 space-y-4">
+        <div>
+          <h3 class="text-base font-bold">Documentación y Aplicaciones del Proyecto</h3>
+          <p class="text-xs text-[var(--text-muted)]">Material técnico y código listo para descargar</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <a href="documentacion/MEMORIA_TECNICA_DEFINITIVA_SISTEMAS_DIGITALES.pdf" download class="glass-card glass-card-interactive p-4 flex flex-col gap-1">
+            <span class="text-sm font-bold">Memoria Técnica (PDF)</span>
+            <span class="text-xs text-[var(--text-muted)]">Informe de ingeniería</span>
+          </a>
+          <a href="sat_geo_android_app_kotlin.zip" download class="glass-card glass-card-interactive p-4 flex flex-col gap-1">
+            <span class="text-sm font-bold">App Android (Kotlin)</span>
+            <span class="text-xs text-[var(--text-muted)]">Alertas móviles USB y Wi-Fi</span>
+          </a>
+          <a href="firmware/firmware_esp32_helios/firmware_esp32_helios.ino" download class="glass-card glass-card-interactive p-4 flex flex-col gap-1">
+            <span class="text-sm font-bold">Firmware ESP32 (.ino)</span>
+            <span class="text-xs text-[var(--text-muted)]">Código del módulo de campo</span>
+          </a>
+          <a href="matlab/proyecto_muestreo_sensores.m" download class="glass-card glass-card-interactive p-4 flex flex-col gap-1">
+            <span class="text-sm font-bold">Script MATLAB (.m)</span>
+            <span class="text-xs text-[var(--text-muted)]">Análisis de 6 canales</span>
+          </a>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="max-w-7xl mx-auto px-4 sm:px-6 py-6 border-t border-[var(--border)] flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
+    <div>PiraquivePropTech · Eric Piraquive — Monitoreo Geotécnico SAT-GEO</div>
+    <div>Diseño centrado en el usuario final</div>
+  </footer>
+
+  <script>
+    // =========================================================================
+    // 1. AUDIO & VOICE ALERT ENGINE
+    // =========================================================================
+    class MissionAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+        this.lastAlarm = 0;
+        this.lastVoice = 0;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+      }
+      playBeep(freq = 660, duration = 0.09, gainVal = 0.04) {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+      }
+      triggerAlert(isCritical) {
+        if (this.muted) return;
+        const now = Date.now();
+        if (now - this.lastAlarm < (isCritical ? 1500 : 3500)) return;
+        this.lastAlarm = now;
+        this.playBeep(isCritical ? 880 : 540, isCritical ? 0.22 : 0.12, isCritical ? 0.08 : 0.04);
+      }
+      announce(msg) {
+        if (this.muted || !('speechSynthesis' in window)) return;
+        const now = Date.now();
+        if (now - this.lastVoice < 7000) return;
+        this.lastVoice = now;
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(msg);
+        u.lang = 'es-ES';
+        u.rate = 1.02;
+        window.speechSynthesis.speak(u);
+      }
+      toggleMute() {
+        this.muted = !this.muted;
+        if (this.muted && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+        return this.muted;
+      }
+    }
+    const audioEngine = new MissionAudioEngine();
+
+    // =========================================================================
+    // 2. GEOTECHNICAL SOLVER
+    // =========================================================================
+    class GeotechnicalSolver {
+      constructor() {
+        this.c_kpa = 24.0;
+        this.phi_deg = 32.0;
+        this.gamma = 18.5;
+        this.H = 3.2;
+        this.beta_deg = 40.0;
+      }
+      processChannels(rawFsr, rawIr, rawSoil, accX, accY, accZ) {
+        const force = rawFsr > 65 ? Math.min(4.4, (rawFsr - 65) * 0.01467) : 0.0;
+        const distCm = Math.max(0.2, 5.0 - (rawIr / 4095.0) * 4.6);
+        const dispMm = Math.max(0.0, (5.0 - distCm) * 10.0);
+        const hum = Math.max(5.0, Math.min(100.0, ((3800.0 - rawSoil) / 2600.0) * 100.0));
+        const azSafe = Math.max(1.0, Math.abs(accZ));
+        const tiltDeg = Math.atan2(Math.hypot(accX, accY), azSafe) * (180.0 / Math.PI);
+        const vibG = Math.abs((accZ / 256.0) - 1.0);
+        return { force, dispMm, hum, tiltDeg, vibG };
+      }
+      computeFactorOfSafety(force, dispMm, hum, tiltDeg, vibG) {
+        const satFactor = Math.max(0, (hum - 15.0) / 85.0);
+        const u_kpa = satFactor * 16.5;
+        const beta = this.beta_deg * Math.PI / 180.0;
+        const phi = this.phi_deg * Math.PI / 180.0;
+
+        const sigma_n = this.gamma * this.H * Math.pow(Math.cos(beta), 2);
+        const sigma_eff = Math.max(2.0, sigma_n - u_kpa);
+        const shearRes = this.c_kpa + sigma_eff * Math.tan(phi);
+
+        const drivingBase = this.gamma * this.H * Math.sin(beta) * Math.cos(beta);
+        const extForce = force * 1.45 + dispMm * 0.18 + tiltDeg * 0.25 + vibG * 14.0;
+        const fs = Math.max(0.45, Math.min(2.60, shearRes / Math.max(1.0, drivingBase + extForce)));
+
+        let alertLevel = 'STABLE';
+        if (fs < 1.0) alertLevel = 'CRITICAL';
+        else if (fs < 1.35) alertLevel = 'WARNING';
+
+        const ttf = alertLevel === 'CRITICAL' ? 0.4 : (alertLevel === 'WARNING' ? 4.2 : 99.9);
+        return { fs, alertLevel, sigma_eff, shearRes, u_kpa, ttf };
+      }
+    }
+    const geoSolver = new GeotechnicalSolver();
+
+    // =========================================================================
+    // 3. MINI SPARKLINES FOR DYNAMIC METRIC CARDS
+    // =========================================================================
+    class MiniSparkline {
+      constructor(id, color, maxVal) {
+        this.canvas = document.getElementById(id);
+        this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+        this.color = color;
+        this.maxVal = maxVal;
+        this.data = [];
+      }
+      push(v) {
+        this.data.push(v);
+        if (this.data.length > 40) this.data.shift();
+        this.draw();
+      }
+      draw() {
+        if (!this.ctx || !this.canvas) return;
+        const parent = this.canvas.parentElement;
+        if (parent && parent.clientWidth > 0 && this.canvas.width !== parent.clientWidth - 40) {
+          this.canvas.width = Math.max(120, parent.clientWidth - 40);
+          this.canvas.height = 40;
+        }
+        const w = this.canvas.width, h = this.canvas.height;
+        const ctx = this.ctx;
+        ctx.clearRect(0, 0, w, h);
+        if (this.data.length < 2) return;
+
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < this.data.length; i++) {
+          const x = (i / 39) * w;
+          const y = h - 4 - Math.min(1, Math.max(0, this.data[i] / this.maxVal)) * (h - 8);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // Soft fill under curve
+        ctx.lineTo(((this.data.length - 1) / 39) * w, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        ctx.fillStyle = this.color + '22';
+        ctx.fill();
+      }
+    }
+    const sparkFS = new MiniSparkline('sparkFS', '#10B981', 2.2);
+    const sparkHum = new MiniSparkline('sparkHum', '#38BDF8', 100);
+    const sparkTilt = new MiniSparkline('sparkTilt', '#F59E0B', 15);
+    const sparkDisp = new MiniSparkline('sparkDisp', '#94A3B8', 40);
+
+    // =========================================================================
+    // 4. SIGNAL CHART & MOHR-COULOMB (TAB 2)
+    // =========================================================================
+    class SignalChart {
+      constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+        this.maxPts = 360;
+        this.bufF = []; this.bufD = []; this.bufH = []; this.bufT = [];
+        this.showSpectrum = false;
+      }
+      push(f, d, h, t) {
+        this.bufF.push(f); this.bufD.push(d); this.bufH.push(h); this.bufT.push(t);
+        if (this.bufF.length > this.maxPts) {
+          this.bufF.shift(); this.bufD.shift(); this.bufH.shift(); this.bufT.shift();
+        }
+      }
+      resize() {
+        if (!this.canvas || !this.canvas.parentElement) return;
+        const r = this.canvas.parentElement.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) { this.canvas.width = r.width; this.canvas.height = r.height; }
+      }
+      toggleMode() {
+        this.showSpectrum = !this.showSpectrum;
+        return this.showSpectrum ? 'Vista: Espectro' : 'Vista: Tiempo Real';
+      }
+      render() {
+        if (!this.ctx || !this.canvas || this.canvas.width <= 0) return;
+        const { width: w, height: h } = this.canvas;
+        const ctx = this.ctx;
+        ctx.fillStyle = '#070A10';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < w; x += w / 10) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+        for (let y = 0; y < h; y += h / 6) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+        if (this.showSpectrum) {
+          const bars = 36, bw = w / bars;
+          for (let i = 0; i < bars; i++) {
+            const v = Math.abs(Math.sin(i * 0.4 + this.bufF.length * 0.1)) * (0.2 + (this.bufF[this.bufF.length - 1] || 0) * 0.18);
+            const bh = Math.min(h - 20, v * h * 0.7);
+            ctx.fillStyle = i < 12 ? '#10B981' : '#F59E0B';
+            ctx.fillRect(i * bw + 2, h - bh, bw - 4, bh);
+          }
+          return;
+        }
+        const trace = (arr, maxV, col) => {
+          if (arr.length < 2) return;
+          ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath();
+          for (let i = 0; i < arr.length; i++) {
+            const x = (i / (this.maxPts - 1)) * w;
+            const y = h - 14 - Math.min(1, Math.max(0, arr[i] / maxV)) * (h - 28);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        };
+        trace(this.bufH, 100, '#38BDF8');
+        trace(this.bufD, 50, '#FFFFFF');
+        trace(this.bufT, 25, '#10B981');
+        trace(this.bufF, 4.5, '#F59E0B');
+      }
+    }
+    const signalChart = new SignalChart('scopeCanvas');
+
+    class MohrCoulombVisualizer {
+      constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+      }
+      resize() {
+        if (!this.canvas || !this.canvas.parentElement) return;
+        const r = this.canvas.parentElement.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) { this.canvas.width = r.width; this.canvas.height = r.height; }
+      }
+      render(sigmaEff, shearRes, alertLevel) {
+        if (!this.ctx || !this.canvas || this.canvas.width <= 0) return;
+        const { width: w, height: h } = this.canvas;
+        const ctx = this.ctx;
+        ctx.fillStyle = '#070A10'; ctx.fillRect(0, 0, w, h);
+        const ox = 44, oy = h - 32;
+        ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(ox, 16); ctx.lineTo(ox, oy); ctx.lineTo(w - 16, oy); ctx.stroke();
+
+        ctx.strokeStyle = '#F59E0B'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(ox, oy - 36); ctx.lineTo(w - 20, 28); ctx.stroke();
+
+        const cx = ox + Math.min(w - ox - 60, Math.max(40, sigmaEff * 3.2));
+        const rad = Math.min(oy - 50, Math.max(24, shearRes * 0.9));
+        ctx.strokeStyle = alertLevel === 'CRITICAL' ? '#EF4444' : (alertLevel === 'WARNING' ? '#F59E0B' : '#10B981');
+        ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.arc(cx, oy, rad, Math.PI, 0); ctx.stroke();
+
+        ctx.fillStyle = '#94A3B8'; ctx.font = '11px Inter, sans-serif';
+        ctx.fillText('Esfuerzo Efectivo σ\' (kPa)', w - 155, oy + 20);
+        ctx.fillText('τ (kPa)', 8, 24);
+      }
+    }
+    const mohrChart = new MohrCoulombVisualizer('mohrCanvas');
+
+    // =========================================================================
+    // 5. INTERACTIVE 3D DIGITAL TWIN WITH DYNAMIC RAIN PARTICLES & BUTTRESSES
+    // =========================================================================
+    class GeotechnicalTwin3D {
+      constructor(containerId) {
+        this.container = document.getElementById(containerId);
+        this.initialized = false;
+        this.rotY = -0.58;
+        this.rotX = 0.36;
+        this.zoom = 13.0;
+        this.autoOrbit = true;
+        this.dragging = false;
+        this.lastX = 0; this.lastY = 0;
+        this.rainIntensity = 0;
+      }
+      init() {
+        if (this.initialized || !this.container || typeof THREE === 'undefined') return;
+        const w = this.container.clientWidth || 640;
+        const h = this.container.clientHeight || 400;
+
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x05070b);
+
+        this.camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setSize(w, h);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.container.appendChild(this.renderer.domElement);
+
+        this.scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+        const keyLight = new THREE.DirectionalLight(0xffffff, 0.95);
+        keyLight.position.set(8, 14, 10);
+        this.scene.add(keyLight);
+
+        const grid = new THREE.GridHelper(20, 20, 0x262b36, 0x13161f);
+        grid.position.y = -1.65;
+        this.scene.add(grid);
+
+        // Soil Mass
+        this.slopeMat = new THREE.MeshStandardMaterial({ color: 0x3b4d3f, roughness: 0.85 });
+        this.slopeMesh = new THREE.Mesh(new THREE.BoxGeometry(6.6, 3.0, 5.4), this.slopeMat);
+        this.slopeMesh.position.set(-1.6, 0.05, 0);
+        this.slopeMesh.rotation.z = -0.20;
+        this.scene.add(this.slopeMesh);
+
+        // Water Table
+        this.waterMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.45 });
+        this.waterMesh = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.35, 5.3), this.waterMat);
+        this.waterMesh.position.set(-1.6, -1.2, 0);
+        this.scene.add(this.waterMesh);
+
+        // Retaining Wall + Buttresses
+        this.wallGroup = new THREE.Group();
+        this.wallGroup.position.set(1.9, 0.05, 0);
+        const wallMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(0.65, 3.4, 5.4),
+          new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.45 })
+        );
+        this.wallGroup.add(wallMesh);
+        [-1.8, 0, 1.8].forEach(zPos => {
+          const buttress = new THREE.Mesh(
+            new THREE.BoxGeometry(0.9, 2.2, 0.35),
+            new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.55 })
+          );
+          buttress.position.set(0.55, -0.55, zPos);
+          this.wallGroup.add(buttress);
+        });
+
+        // Tension Crack indicator
+        this.crackMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.0 });
+        this.crackMesh = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.12, 5.2), this.crackMat);
+        this.crackMesh.position.set(-0.4, 1.65, 0);
+        this.wallGroup.add(this.crackMesh);
+
+        // Beacon
+        this.beaconMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+        const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16), this.beaconMat);
+        beacon.position.set(0, 2.15, 0);
+        this.wallGroup.add(beacon);
+
+        this.scene.add(this.wallGroup);
+
+        // 3D Rain Particles
+        const rainCount = 260;
+        const rainGeo = new THREE.BufferGeometry();
+        const rainPos = new Float32Array(rainCount * 3);
+        for (let i = 0; i < rainCount; i++) {
+          rainPos[i * 3] = (Math.random() - 0.5) * 14;
+          rainPos[i * 3 + 1] = Math.random() * 9;
+          rainPos[i * 3 + 2] = (Math.random() - 0.5) * 10;
+        }
+        rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+        this.rainMat = new THREE.PointsMaterial({ color: 0x38bdf8, size: 0.12, transparent: true, opacity: 0 });
+        this.rainPoints = new THREE.Points(rainGeo, this.rainMat);
+        this.scene.add(this.rainPoints);
+
+        const dom = this.renderer.domElement;
+        dom.addEventListener('pointerdown', e => { this.dragging = true; this.autoOrbit = false; this.lastX = e.clientX; this.lastY = e.clientY; });
+        window.addEventListener('pointerup', () => { this.dragging = false; });
+        window.addEventListener('pointermove', e => {
+          if (!this.dragging) return;
+          this.rotY += (e.clientX - this.lastX) * 0.008;
+          this.rotX = Math.max(0.12, Math.min(1.15, this.rotX + (e.clientY - this.lastY) * 0.008));
+          this.lastX = e.clientX; this.lastY = e.clientY;
+        });
+        dom.addEventListener('wheel', e => {
+          e.preventDefault();
+          this.zoom = Math.max(7, Math.min(20, this.zoom + e.deltaY * 0.01));
+        }, { passive: false });
+
+        this.initialized = true;
+        this.animate();
+      }
+      setView(mode) {
+        this.autoOrbit = false;
+        if (mode === 'wall') { this.rotY = 0.05; this.rotX = 0.25; this.zoom = 10.5; }
+        else { this.rotY = -0.58; this.rotX = 0.36; this.zoom = 13.0; }
+      }
+      resize() {
+        if (!this.initialized || !this.container) return;
+        const w = this.container.clientWidth, h = this.container.clientHeight;
+        if (w > 0 && h > 0) {
+          this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.renderer.setSize(w, h);
+        }
+      }
+      updatePhysics(tiltDeg, dispMm, hum, alertLevel) {
+        if (!this.initialized) return;
+        this.wallGroup.rotation.z = -(tiltDeg * Math.PI / 180) * 1.6;
+        this.wallGroup.position.x = 1.9 + (dispMm * 0.018);
+        this.waterMesh.position.y = -1.35 + (hum / 100.0) * 1.75;
+        this.rainIntensity = Math.max(0, (hum - 30) / 70);
+        this.rainMat.opacity = this.rainIntensity > 0.1 ? Math.min(0.85, this.rainIntensity) : 0;
+        this.crackMat.opacity = Math.min(1, dispMm / 12);
+        const col = alertLevel === 'CRITICAL' ? 0xef4444 : (alertLevel === 'WARNING' ? 0xf59e0b : 0x10b981);
+        this.beaconMat.color.setHex(col);
+      }
+      animate() {
+        requestAnimationFrame(() => this.animate());
+        if (!this.initialized) return;
+        if (this.autoOrbit && !this.dragging) this.rotY += 0.0025;
+        if (this.rainPoints && this.rainMat.opacity > 0) {
+          const pos = this.rainPoints.geometry.attributes.position.array;
+          for (let i = 1; i < pos.length; i += 3) {
+            pos[i] -= 0.16;
+            if (pos[i] < -1.5) pos[i] = 7.5;
+          }
+          this.rainPoints.geometry.attributes.position.needsUpdate = true;
+        }
+        this.camera.position.x = Math.sin(this.rotY) * Math.cos(this.rotX) * this.zoom;
+        this.camera.position.y = Math.sin(this.rotX) * this.zoom;
+        this.camera.position.z = Math.cos(this.rotY) * Math.cos(this.rotX) * this.zoom;
+        this.camera.lookAt(0, 0, 0);
+        this.renderer.render(this.scene, this.camera);
+      }
+    }
+    const twin3D = new GeotechnicalTwin3D('threeContainer');
+
+    // =========================================================================
+    // 6. FLIGHT RECORDER & EVENT LOG
+    // =========================================================================
+    class FlightRecorder {
+      constructor() { this.rows = []; this.maxRows = 12000; }
+      push(r) { this.rows.push(r); if (this.rows.length > this.maxRows) this.rows.shift(); }
+      export(fmt) {
+        if (!this.rows.length) return;
+        let content = '', mime = 'text/plain', ext = fmt;
+        if (fmt === 'csv') {
+          content = 'timestamp,force_N,disp_mm,hum_pct,tilt_deg,vib_g,FS,status\n' +
+            this.rows.map(r => `${r.ts},${r.force.toFixed(2)},${r.dispMm.toFixed(2)},${r.hum.toFixed(1)},${r.tiltDeg.toFixed(2)},${r.vibG.toFixed(3)},${r.fs.toFixed(2)},${r.alertLevel}`).join('\n');
+          mime = 'text/csv';
+        } else if (fmt === 'json') {
+          content = JSON.stringify(this.rows, null, 2); mime = 'application/json';
+        } else {
+          const fArr = this.rows.slice(-500).map(r => r.force.toFixed(2)).join(' ');
+          const dArr = this.rows.slice(-500).map(r => r.dispMm.toFixed(2)).join(' ');
+          content = `% SAT-GEO Export\nforce_N = [${fArr}];\ndisp_mm = [${dArr}];\nplot(force_N); grid on;`;
+          ext = 'm';
+        }
+        const blob = new Blob([content], { type: mime });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = `sat_geo_telemetria.${ext}`; a.click();
+      }
+    }
+    const flightRecorder = new FlightRecorder();
+
+    let lastLoggedState = null;
+    function addEventLog(title, detail, level = 'INFO') {
+      const list = document.getElementById('eventLogList');
+      if (!list) return;
+      const now = new Date().toLocaleTimeString('es-CO', { hour12: false });
+      const badgeCls = level === 'CRITICAL'
+        ? 'text-red-400 bg-red-500/15'
+        : (level === 'WARNING' ? 'text-amber-400 bg-amber-500/15' : 'text-emerald-400 bg-emerald-500/15');
+      const row = document.createElement('div');
+      row.className = 'px-5 py-3 flex items-center justify-between gap-4';
+      row.innerHTML = `
+        <div class="min-w-0">
+          <div class="font-semibold truncate">${title}</div>
+          <div class="text-xs text-[var(--text-muted)] truncate">${detail}</div>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+          <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full ${badgeCls}">${level}</span>
+          <span class="font-num text-xs text-[var(--text-muted)]">${now}</span>
+        </div>
+      `;
+      list.prepend(row);
+      while (list.children.length > 20) list.removeChild(list.lastChild);
+    }
+    function clearEventLog() {
+      document.getElementById('eventLogList').innerHTML = '';
+      addEventLog('Historial limpiado', 'Esperando nuevos eventos del talud', 'INFO');
+    }
+
+    // =========================================================================
+    // 7. MULTI-SOURCE TELEMETRY ENGINE
+    // =========================================================================
+    class TelemetryStreamEngine {
+      constructor() {
+        this.mode = 'SIM';
+        this.simScenario = 'normal';
+        this.rainLevel = 0; // 0..100 interactive slider
+        this.sampleCount = 0;
+        this.serialPort = null; this.serialReader = null;
+        this.pollTimer = null; this.simTimer = null;
+        this.onSample = null;
+      }
+      setConnectionUI(text, colorClass) {
+        document.getElementById('txtConnectionStatus').textContent = text;
+        document.getElementById('statusDot').className = `w-2 h-2 rounded-full ${colorClass} pulse-ring inline-block`;
+      }
+      stopAll() {
+        if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
+        if (this.simTimer) { clearInterval(this.simTimer); this.simTimer = null; }
+        if (this.serialReader) { try { this.serialReader.cancel(); } catch {} this.serialReader = null; }
+        if (this.serialPort) { try { this.serialPort.close(); } catch {} this.serialPort = null; }
+      }
+      async autoDetectLocalServer(manual = false) {
+        if (location.protocol === 'https:') {
+          if (manual) showConnectFeedback('Desde HTTPS usa "Conectar USB" o abre el servidor local en http://localhost:5000.', 'warn');
+          return false;
+        }
+        const base = (location.port === '5000' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1')) ? '' : 'http://localhost:5000';
+        try {
+          const res = await fetch(`${base}/api/telemetry`, { signal: AbortSignal.timeout(1000) });
+          if (res.ok) {
+            this.localBase = base;
+            this.startServerIngress();
+            if (manual) showConnectFeedback('Conectado al servidor local.', 'ok');
+            return true;
+          }
+        } catch {}
+        if (manual) showConnectFeedback('No se encontró servidor local en localhost:5000.', 'warn');
+        return false;
+      }
+      startServerIngress() {
+        this.stopAll(); this.mode = 'SERVER';
+        const base = this.localBase || '';
+        this.setConnectionUI('Servidor Local · Conectado', 'bg-emerald-400 text-emerald-400');
+        this.pollTimer = setInterval(async () => {
+          try {
+            const res = await fetch(`${base}/api/telemetry`, { signal: AbortSignal.timeout(800) });
+            if (!res.ok) throw new Error();
+            const d = await res.json();
+            this.emitRaw(d.raw_fsr ?? 78, d.raw_ir ?? 120, d.raw_soil ?? 3250, d.acc_x ?? 1, d.acc_y ?? 0, d.acc_z ?? 256);
+          } catch { this.startSim(); }
+        }, 120);
+      }
+      async connectWifi(ip) {
+        if (location.protocol === 'https:') {
+          showConnectFeedback('El navegador bloquea HTTP desde HTTPS. Usa Conectar USB o abre en http://localhost:5000.', 'warn');
+          return;
+        }
+        try {
+          const res = await fetch(`http://${ip}/api/telemetry`, { signal: AbortSignal.timeout(2000) });
+          if (!res.ok) throw new Error();
+          this.stopAll(); this.mode = 'WIFI';
+          this.setConnectionUI(`Wi-Fi ESP32 · ${ip}`, 'bg-sky-400 text-sky-400');
+          document.getElementById('btnConnectWifi').textContent = 'Desconectar Wi-Fi';
+          showConnectFeedback(`Conectado por Wi-Fi a ${ip}.`, 'ok');
+          addEventLog('Conexión Wi-Fi activa', `Estación en ${ip}`, 'INFO');
+          this.pollTimer = setInterval(async () => {
+            try {
+              const r = await fetch(`http://${ip}/api/telemetry`, { signal: AbortSignal.timeout(900) });
+              if (!r.ok) throw new Error();
+              const d = await r.json();
+              this.emitRaw(d.raw_fsr ?? 78, d.raw_ir ?? 120, d.raw_soil ?? 3250, d.acc_x ?? 1, d.acc_y ?? 0, d.acc_z ?? 256);
+            } catch { this.startSim(); }
+          }, 80);
+        } catch {
+          showConnectFeedback(`No respondió http://${ip}/api/telemetry. Revisa tu conexión Wi-Fi.`, 'err');
+        }
+      }
+      async connectUSB() {
+        if (!('serial' in navigator)) {
+          showConnectFeedback('Usa Google Chrome o Microsoft Edge para conectar por USB.', 'err');
+          return;
+        }
+        try {
+          const port = await navigator.serial.requestPort();
+          await port.open({ baudRate: 115200 });
+          this.stopAll(); this.serialPort = port; this.mode = 'SERIAL';
+          this.setConnectionUI('USB Conectado · Tiempo Real', 'bg-emerald-400 text-emerald-400');
+          document.getElementById('btnConnectUSB').textContent = 'Desconectar USB';
+          showConnectFeedback('Estación ESP32 conectada por cable USB.', 'ok');
+          addEventLog('Sensor USB conectado', 'Lectura directa a 115200 baud', 'INFO');
+          this.readSerialLoop();
+        } catch {
+          showConnectFeedback('No se pudo abrir el puerto USB (cierra el Monitor Serie si está abierto).', 'warn');
+        }
+      }
+      async readSerialLoop() {
+        const decoder = new TextDecoderStream();
+        this.serialPort.readable.pipeTo(decoder.writable).catch(() => {});
+        const reader = decoder.readable.getReader();
+        this.serialReader = reader;
+        let buf = '';
+        try {
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buf += value;
+            let idx;
+            while ((idx = buf.indexOf(';')) !== -1) {
+              const frame = buf.slice(0, idx).trim();
+              buf = buf.slice(idx + 1);
+              if (!frame.startsWith('@,')) continue;
+              const tokens = frame.slice(2).split(',');
+              if (tokens.length >= 9 && tokens[0] === '00' && tokens[1] === '6') {
+                const payload = tokens.slice(0, 8).join(',');
+                let xor = 0;
+                for (let i = 0; i < payload.length; i++) xor ^= payload.charCodeAt(i);
+                if (xor === parseInt(tokens[8], 16)) {
+                  this.emitRaw(+tokens[2], +tokens[3], +tokens[4], +tokens[5], +tokens[6], +tokens[7]);
+                }
+              }
+            }
+          }
+        } catch {}
+        this.startSim();
+      }
+      startSim() {
+        this.stopAll(); this.mode = 'SIM';
+        this.setConnectionUI('Modo Interactivo · Sector K4+800', 'bg-emerald-400 text-emerald-400');
+        document.getElementById('btnConnectUSB').textContent = 'Conectar USB';
+        document.getElementById('btnConnectWifi').textContent = 'Conectar Wi-Fi';
+        let t = 0;
+        this.simTimer = setInterval(() => {
+          t += 0.06;
+          const r = this.rainLevel / 100.0;
+          let fsr = 78 + r * 220 + Math.sin(t) * 3;
+          let ir = 120 + r * 1800 + Math.cos(t) * 8;
+          let soil = 3250 - r * 2050;
+          let ax = Math.round(1 + r * 35), ay = Math.round(r * 14), az = 256;
+          if (this.simScenario === 'seismic') {
+            fsr = 350 + Math.sin(t * 7) * 35;
+            ir = 2800 + Math.cos(t * 5) * 180;
+            soil = 1250;
+            ax = Math.round(Math.sin(t * 14) * 55);
+            ay = Math.round(Math.cos(t * 12) * 35);
+            az = 256 + Math.round(Math.sin(t * 18) * 45);
+          }
+          this.emitRaw(fsr, ir, soil, ax, ay, az);
+        }, 60);
+      }
+      emitRaw(fsr, ir, soil, ax, ay, az) {
+        this.sampleCount++;
+        if (this.onSample) this.onSample(fsr, ir, soil, ax, ay, az);
+      }
+    }
+    const stream = new TelemetryStreamEngine();
+
+    // =========================================================================
+    // 8. UI UPDATES & INTERACTIVITY
+    // =========================================================================
+    stream.onSample = (fsr, ir, soil, ax, ay, az) => {
+      const ch = geoSolver.processChannels(fsr, ir, soil, ax, ay, az);
+      const res = geoSolver.computeFactorOfSafety(ch.force, ch.dispMm, ch.hum, ch.tiltDeg, ch.vibG);
+
+      document.getElementById('valOpFS').textContent = res.fs.toFixed(2);
+      document.getElementById('valFS').textContent = res.fs.toFixed(2);
+      document.getElementById('valMoisture').textContent = ch.hum.toFixed(1);
+      document.getElementById('valTilt').textContent = ch.tiltDeg.toFixed(2);
+      document.getElementById('valVib').textContent = ch.vibG.toFixed(2);
+      document.getElementById('valDisp').textContent = ch.dispMm.toFixed(1);
+      document.getElementById('valForce').textContent = ch.force.toFixed(2);
+      document.getElementById('lblSampleCount').textContent = stream.sampleCount;
+
+      // Radial Gauge Arc (314.16 circumference)
+      const arc = document.getElementById('gaugeArc');
+      const pct = Math.max(0.08, Math.min(1.0, res.fs / 2.2));
+      arc.style.strokeDashoffset = (314.16 * (1 - pct)).toFixed(1);
+
+      const badge = document.getElementById('badgeOpState');
+      const title = document.getElementById('txtOperatorTitle');
+      const action = document.getElementById('txtOperatorAction');
+      const fsState = document.getElementById('txtFSState');
+      const ttfEl = document.getElementById('valTTF');
+      const beaconDot = document.getElementById('twinBeaconDot');
+
+      if (res.alertLevel === 'CRITICAL') {
+        arc.style.stroke = '#EF4444';
+        document.documentElement.style.setProperty('--ambient', 'rgba(239, 68, 68, 0.22)');
+        badge.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-red-500/20 text-red-400';
+        badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-[10px]"></i> Alerta Crítica';
+        title.textContent = 'Riesgo Alto — Evacuar Zona';
+        action.textContent = 'La estabilidad cayó por debajo del límite seguro (1.00). Cierre el paso y active protocolo preventivo.';
+        fsState.className = 'font-semibold text-red-400'; fsState.textContent = 'Crítico (< 1.00)';
+        ttfEl.textContent = `~${res.ttf.toFixed(1)} h`;
+        beaconDot.className = 'w-2 h-2 rounded-full bg-red-500';
+        audioEngine.triggerAlert(true);
+        audioEngine.announce('Alerta crítica de deslizamiento. Evacuar la zona.');
+        if (navigator.vibrate && navigator.userActivation && navigator.userActivation.hasActiveActivation) {
+          navigator.vibrate([150, 70, 150]);
+        }
+      } else if (res.alertLevel === 'WARNING') {
+        arc.style.stroke = '#F59E0B';
+        document.documentElement.style.setProperty('--ambient', 'rgba(245, 158, 11, 0.18)');
+        badge.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-amber-500/20 text-amber-400';
+        badge.innerHTML = '<i class="fa-solid fa-circle-exclamation text-[10px]"></i> Precaución';
+        title.textContent = 'Atención — Suelo Saturado';
+        action.textContent = 'Aumento de humedad o presión detectado. Vigilar drenajes y evitar carga pesada en el borde.';
+        fsState.className = 'font-semibold text-amber-400'; fsState.textContent = 'Precaución (1.00–1.34)';
+        ttfEl.textContent = `~${res.ttf.toFixed(1)} h`;
+        beaconDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        audioEngine.triggerAlert(false);
+      } else {
+        arc.style.stroke = '#10B981';
+        document.documentElement.style.setProperty('--ambient', 'rgba(16, 185, 129, 0.14)');
+        badge.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400';
+        badge.innerHTML = '<i class="fa-solid fa-circle-check text-[10px]"></i> Terreno Seguro';
+        title.textContent = 'Estabilidad Óptima';
+        action.textContent = 'El terreno presenta firmeza normal. Sin saturación de agua ni movimiento peligroso en el muro.';
+        fsState.className = 'font-semibold text-emerald-400'; fsState.textContent = 'Seguro (≥ 1.35)';
+        ttfEl.textContent = 'Estable';
+        beaconDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+      }
+
+      if (lastLoggedState !== res.alertLevel) {
+        lastLoggedState = res.alertLevel;
+        const msg = res.alertLevel === 'CRITICAL'
+          ? `FS ${res.fs.toFixed(2)} · Humedad ${ch.hum.toFixed(0)}% · Grieta ${ch.dispMm.toFixed(1)} mm`
+          : (res.alertLevel === 'WARNING'
+            ? `FS ${res.fs.toFixed(2)} · Humedad ${ch.hum.toFixed(0)}%`
+            : `FS ${res.fs.toFixed(2)} · Terreno estabilizado`);
+        addEventLog(
+          res.alertLevel === 'CRITICAL' ? 'Alerta Crítica Activada' : (res.alertLevel === 'WARNING' ? 'Advertencia de Saturación' : 'Estado Seguro Restablecido'),
+          msg,
+          res.alertLevel
+        );
+      }
+
+      sparkFS.push(res.fs);
+      sparkHum.push(ch.hum);
+      sparkTilt.push(ch.tiltDeg);
+      sparkDisp.push(ch.dispMm);
+
+      twin3D.updatePhysics(ch.tiltDeg, ch.dispMm, ch.hum, res.alertLevel);
+      signalChart.push(ch.force, ch.dispMm, ch.hum, ch.tiltDeg);
+      if (!document.getElementById('tab-analysis').classList.contains('hidden')) {
+        signalChart.render();
+        mohrChart.render(res.sigma_eff, res.shearRes, res.alertLevel);
+      }
+      flightRecorder.push({ ts: new Date().toISOString(), force: ch.force, dispMm: ch.dispMm, hum: ch.hum, tiltDeg: ch.tiltDeg, vibG: ch.vibG, fs: res.fs, alertLevel: res.alertLevel });
+    };
+
+    function onRainSlider(val) {
+      audioEngine.init();
+      const v = Number(val);
+      stream.simScenario = 'normal';
+      stream.rainLevel = v;
+      document.getElementById('lblRainIntensity').textContent = `${v}% Lluvia`;
+      if (stream.mode === 'SERVER') {
+        fetch(`${stream.localBase || ''}/api/control`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sim_storm: v >= 45 })
+        }).catch(() => {});
+      }
+    }
+
+    function setQuickScenario(mode) {
+      audioEngine.init();
+      stream.simScenario = mode;
+      const slider = document.getElementById('sliderRain');
+      if (mode === 'normal') { slider.value = 0; stream.rainLevel = 0; document.getElementById('lblRainIntensity').textContent = '0% Lluvia'; }
+      else if (mode === 'rain') { slider.value = 80; stream.rainLevel = 80; document.getElementById('lblRainIntensity').textContent = '80% Lluvia'; }
+      else { slider.value = 95; stream.rainLevel = 95; document.getElementById('lblRainIntensity').textContent = 'Sismo + Lluvia'; }
+
+      if (stream.mode === 'SERVER') {
+        fetch(`${stream.localBase || ''}/api/control`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sim_storm: mode !== 'normal' })
+        }).catch(() => {});
+      }
+    }
+
+    function setTwinView(v) { twin3D.setView(v); }
+    function toggleAutoOrbit() {
+      twin3D.autoOrbit = !twin3D.autoOrbit;
+      document.getElementById('btnAutoOrbit').style.opacity = twin3D.autoOrbit ? '1' : '0.6';
+    }
+
+    function showConnectFeedback(msg, type = 'ok') {
+      const el = document.getElementById('connectFeedback');
+      el.classList.remove('hidden');
+      const cls = type === 'err' ? 'border-l-4 border-red-500 text-red-400' : (type === 'warn' ? 'border-l-4 border-amber-500 text-amber-400' : 'border-l-4 border-emerald-500 text-emerald-400');
+      el.className = `glass-card px-5 py-3 text-sm ${cls}`;
+      el.textContent = msg;
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
+      document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`tab-${name}`).classList.remove('hidden');
+      document.getElementById(`tabBtn-${name}`).classList.add('active');
+      if (name === 'overview') setTimeout(() => twin3D.resize(), 60);
+      if (name === 'analysis') {
+        setTimeout(() => {
+          signalChart.resize(); mohrChart.resize(); initGISMap();
+          if (window._mapGIS) window._mapGIS.invalidateSize();
+        }, 80);
+      }
+    }
+
+    function toggleTheme() {
+      const isLight = document.body.classList.toggle('theme-light');
+      document.getElementById('iconTheme').className = isLight ? 'fa-solid fa-moon text-xs' : 'fa-solid fa-sun text-xs';
+      document.getElementById('lblTheme').textContent = isLight ? 'Modo Oscuro' : 'Modo Claro';
+    }
+
+    function toggleAudioAlarm() {
+      const muted = audioEngine.toggleMute();
+      document.getElementById('btnMute').innerHTML = muted
+        ? '<i class="fa-solid fa-volume-xmark text-xs"></i><span class="hidden sm:inline">Silenciado</span>'
+        : '<i class="fa-solid fa-volume-high text-xs"></i><span class="hidden sm:inline">Voz y Alarma</span>';
+    }
+
+    function toggleSerialConnection() { if (stream.mode === 'SERIAL') stream.startSim(); else stream.connectUSB(); }
+    function toggleWifiConnection() {
+      if (stream.mode === 'WIFI') stream.startSim();
+      else stream.connectWifi((document.getElementById('inputWifiIp').value || '192.168.4.1').trim());
+    }
+    function toggleOscilloscopeMode() { document.getElementById('btnToggleDSO').textContent = signalChart.toggleMode(); }
+    function exportData(fmt) { flightRecorder.export(fmt); }
+    function autoDetectLocalServer(manual) { return stream.autoDetectLocalServer(manual); }
+
+    let mapInitialized = false;
+    function initGISMap() {
+      if (mapInitialized || typeof L === 'undefined') return;
+      const map = L.map('mapGIS').setView([4.5521, -74.0512], 14);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap · SAT-GEO' }).addTo(map);
+      L.circle([4.5521, -74.0512], { color: '#10b981', fillColor: '#10b981', fillOpacity: 0.2, radius: 180 }).addTo(map)
+        .bindPopup('Estación SAT-GEO K4+800');
+      window._mapGIS = map; mapInitialized = true;
+    }
+
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; });
+    function installPWA() {
+      if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt.userChoice.then(() => { deferredPrompt = null; }); }
+      else showConnectFeedback('En Chrome/Edge puedes instalar desde el ícono "Instalar" en la barra de direcciones.', 'ok');
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      twin3D.init();
+      window.addEventListener('resize', () => { twin3D.resize(); signalChart.resize(); mohrChart.resize(); });
+      stream.autoDetectLocalServer(false).then(ok => { if (!ok) stream.startSim(); });
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  </script>
+</body>
+</html>

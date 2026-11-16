@@ -1,0 +1,24 @@
+{
+  "name": "HELIOS-9 // SAT-GEO 4.0 PRO - Estación Geotécnica",
+  "short_name": "HELIOS-9",
+  "description": "Sistema Ciberfísico de Telemetría Geotécnica a 250 Hz (ESP32 + ADXL345 + FSR-406 + IR + Sonda Suelo)",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#030306",
+  "theme_color": "#FFB347",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
