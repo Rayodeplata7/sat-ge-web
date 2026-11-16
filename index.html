@@ -848,13 +848,14 @@
       constructor(containerId) {
         this.container = document.getElementById(containerId);
         this.initialized = false;
-        this.rotY = -0.58;
-        this.rotX = 0.36;
-        this.zoom = 13.0;
+        this.rotY = -0.62;
+        this.rotX = 0.34;
+        this.zoom = 13.5;
         this.autoOrbit = true;
         this.dragging = false;
         this.lastX = 0; this.lastY = 0;
         this.rainIntensity = 0;
+        this.pulsePhase = 0;
       }
       init() {
         if (this.initialized || !this.container || typeof THREE === 'undefined') return;
@@ -862,78 +863,157 @@
         const h = this.container.clientHeight || 400;
 
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x05070b);
+        this.scene.background = new THREE.Color(0x070a12);
+        this.scene.fog = new THREE.FogExp2(0x070a12, 0.022);
 
-        this.camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
+        this.camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 100);
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(w, h);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.container.appendChild(this.renderer.domElement);
 
-        this.scene.add(new THREE.AmbientLight(0xffffff, 0.65));
-        const keyLight = new THREE.DirectionalLight(0xffffff, 0.95);
-        keyLight.position.set(8, 14, 10);
-        this.scene.add(keyLight);
+        // Studio + Outdoor Hemisphere Lighting
+        this.scene.add(new THREE.HemisphereLight(0x93c5fd, 0x1e293b, 0.75));
+        const sun = new THREE.DirectionalLight(0xfff7ed, 1.15);
+        sun.position.set(8, 14, 9);
+        sun.castShadow = true;
+        sun.shadow.mapSize.width = 1024;
+        sun.shadow.mapSize.height = 1024;
+        this.scene.add(sun);
 
-        const grid = new THREE.GridHelper(20, 20, 0x262b36, 0x13161f);
-        grid.position.y = -1.65;
+        // Ground plinth
+        const ground = new THREE.Mesh(
+          new THREE.PlaneGeometry(36, 36),
+          new THREE.MeshStandardMaterial({ color: 0x0b0f19, roughness: 0.95 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -2.0;
+        ground.receiveShadow = true;
+        this.scene.add(ground);
+
+        const grid = new THREE.GridHelper(24, 24, 0x1e293b, 0x111827);
+        grid.position.y = -1.99;
         this.scene.add(grid);
 
-        // Soil Mass
-        this.slopeMat = new THREE.MeshStandardMaterial({ color: 0x3b4d3f, roughness: 0.85 });
-        this.slopeMesh = new THREE.Mesh(new THREE.BoxGeometry(6.6, 3.0, 5.4), this.slopeMat);
-        this.slopeMesh.position.set(-1.6, 0.05, 0);
-        this.slopeMesh.rotation.z = -0.20;
-        this.scene.add(this.slopeMesh);
+        // 1. Sculpted Geological Strata (Bedrock + Clay + Vegetated Topsoil)
+        const depth = 6.2;
+        const makeStratum = (pts, color, rough) => {
+          const shape = new THREE.Shape();
+          shape.moveTo(pts[0][0], pts[0][1]);
+          for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i][0], pts[i][1]);
+          shape.closePath();
+          const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2 });
+          geo.translate(0, 0, -depth / 2);
+          const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: rough }));
+          mesh.castShadow = true; mesh.receiveShadow = true;
+          return mesh;
+        };
 
-        // Water Table
-        this.waterMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.45 });
-        this.waterMesh = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.35, 5.3), this.waterMat);
-        this.waterMesh.position.set(-1.6, -1.2, 0);
+        // Bedrock base
+        this.scene.add(makeStratum([[-5.2, -2.0], [3.6, -2.0], [3.6, -1.2], [-5.2, -1.2]], 0x262b36, 0.92));
+        // Soil hillside cross-section
+        this.scene.add(makeStratum([[-5.2, -1.2], [1.4, -1.2], [1.4, 1.4], [-0.4, 2.0], [-2.5, 2.45], [-5.2, 2.5]], 0x5c4636, 0.9));
+        // Vegetated top crust
+        this.scene.add(makeStratum([[-5.2, 2.42], [-2.5, 2.38], [-0.4, 1.92], [1.4, 1.34], [1.4, 1.56], [-0.4, 2.16], [-2.5, 2.62], [-5.2, 2.65]], 0x2d5a3f, 0.85));
+
+        // 2. Volumetric Water Table inside the hill
+        this.waterMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.42, roughness: 0.2 });
+        this.waterMesh = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.35, depth - 0.1), this.waterMat);
+        this.waterMesh.position.set(-1.9, -0.95, 0);
         this.scene.add(this.waterMesh);
 
-        // Retaining Wall + Buttresses
+        // 3. Sculpted Trees & Guardrail on Crest
+        const addTree = (x, y, z, s) => {
+          const g = new THREE.Group();
+          const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * s, 0.12 * s, 0.55 * s, 7), new THREE.MeshStandardMaterial({ color: 0x4a3525 }));
+          trunk.position.y = 0.28 * s; trunk.castShadow = true; g.add(trunk);
+          const c1 = new THREE.Mesh(new THREE.ConeGeometry(0.45 * s, 1.0 * s, 8), new THREE.MeshStandardMaterial({ color: 0x1e4d35, roughness: 0.8 }));
+          c1.position.y = 0.9 * s; c1.castShadow = true; g.add(c1);
+          const c2 = new THREE.Mesh(new THREE.ConeGeometry(0.32 * s, 0.75 * s, 8), new THREE.MeshStandardMaterial({ color: 0x2a6646, roughness: 0.8 }));
+          c2.position.y = 1.35 * s; c2.castShadow = true; g.add(c2);
+          g.position.set(x, y, z);
+          this.scene.add(g);
+        };
+        addTree(-4.2, 2.62, -1.8, 1.05);
+        addTree(-3.4, 2.58, 1.9, 0.9);
+        addTree(-2.1, 2.48, -2.1, 0.85);
+        addTree(-4.4, 2.62, 0.6, 1.15);
+
+        // 4. Reinforced Concrete Retaining Wall + Buttresses + Weep Drains + IoT Mast
         this.wallGroup = new THREE.Group();
-        this.wallGroup.position.set(1.9, 0.05, 0);
-        const wallMesh = new THREE.Mesh(
-          new THREE.BoxGeometry(0.65, 3.4, 5.4),
-          new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.45 })
-        );
+        this.wallGroup.position.set(1.65, -1.2, 0);
+
+        const wallShape = new THREE.Shape();
+        wallShape.moveTo(-0.35, 0); wallShape.lineTo(0.95, 0); wallShape.lineTo(0.95, 0.35);
+        wallShape.lineTo(0.35, 0.35); wallShape.lineTo(0.22, 3.05); wallShape.lineTo(-0.25, 3.05);
+        wallShape.closePath();
+        const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 2 });
+        wallGeo.translate(0, 0, -depth / 2);
+        const wallMesh = new THREE.Mesh(wallGeo, new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.52 }));
+        wallMesh.castShadow = true; wallMesh.receiveShadow = true;
         this.wallGroup.add(wallMesh);
-        [-1.8, 0, 1.8].forEach(zPos => {
-          const buttress = new THREE.Mesh(
-            new THREE.BoxGeometry(0.9, 2.2, 0.35),
-            new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.55 })
-          );
-          buttress.position.set(0.55, -0.55, zPos);
-          this.wallGroup.add(buttress);
+
+        // 4 Concrete Buttresses
+        [-2.2, -0.75, 0.75, 2.2].forEach(zPos => {
+          const bShape = new THREE.Shape();
+          bShape.moveTo(0.25, 0.35); bShape.lineTo(1.05, 0.35); bShape.lineTo(0.25, 2.55); bShape.closePath();
+          const bGeo = new THREE.ExtrudeGeometry(bShape, { depth: 0.24, bevelEnabled: false });
+          bGeo.translate(0, 0, -0.12);
+          const bMesh = new THREE.Mesh(bGeo, new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.6 }));
+          bMesh.position.z = zPos; bMesh.castShadow = true;
+          this.wallGroup.add(bMesh);
         });
 
-        // Tension Crack indicator
+        // Weep Drainage Pipes
+        this.drainMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.2 });
+        [-1.5, 0, 1.5].forEach(zPos => {
+          const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.45, 10), this.drainMat);
+          pipe.rotation.z = Math.PI / 2;
+          pipe.position.set(0.38, 0.85, zPos);
+          this.wallGroup.add(pipe);
+        });
+
+        // Tension Crack glowing seam
         this.crackMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.0 });
-        this.crackMesh = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.12, 5.2), this.crackMat);
-        this.crackMesh.position.set(-0.4, 1.65, 0);
+        this.crackMesh = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, depth - 0.3), this.crackMat);
+        this.crackMesh.position.set(-0.32, 2.95, 0);
         this.wallGroup.add(this.crackMesh);
 
-        // Beacon
+        // IoT Solar Station + Status Beacon on top of wall
+        const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 1.35, 10), new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.6 }));
+        mast.position.set(0, 3.7, 0);
+        this.wallGroup.add(mast);
+
+        const solar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.04, 0.5), new THREE.MeshStandardMaterial({ color: 0x1e3a8a, metalness: 0.5, roughness: 0.2 }));
+        solar.position.set(0.1, 4.05, 0); solar.rotation.z = -0.45;
+        this.wallGroup.add(solar);
+
         this.beaconMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
-        const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16), this.beaconMat);
-        beacon.position.set(0, 2.15, 0);
+        const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), this.beaconMat);
+        beacon.position.set(0, 4.45, 0);
         this.wallGroup.add(beacon);
+
+        this.haloMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.28, side: THREE.DoubleSide });
+        this.haloRing = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.42, 24), this.haloMat);
+        this.haloRing.position.set(0, 4.45, 0);
+        this.haloRing.rotation.x = Math.PI / 2;
+        this.wallGroup.add(this.haloRing);
 
         this.scene.add(this.wallGroup);
 
-        // 3D Rain Particles
-        const rainCount = 260;
+        // 5. 3D Rain Particles
+        const rainCount = 320;
         const rainGeo = new THREE.BufferGeometry();
         const rainPos = new Float32Array(rainCount * 3);
         for (let i = 0; i < rainCount; i++) {
-          rainPos[i * 3] = (Math.random() - 0.5) * 14;
-          rainPos[i * 3 + 1] = Math.random() * 9;
-          rainPos[i * 3 + 2] = (Math.random() - 0.5) * 10;
+          rainPos[i * 3] = (Math.random() - 0.5) * 16;
+          rainPos[i * 3 + 1] = Math.random() * 10 - 1;
+          rainPos[i * 3 + 2] = (Math.random() - 0.5) * 12;
         }
         rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
-        this.rainMat = new THREE.PointsMaterial({ color: 0x38bdf8, size: 0.12, transparent: true, opacity: 0 });
+        this.rainMat = new THREE.PointsMaterial({ color: 0x38bdf8, size: 0.11, transparent: true, opacity: 0 });
         this.rainPoints = new THREE.Points(rainGeo, this.rainMat);
         this.scene.add(this.rainPoints);
 
@@ -948,7 +1028,7 @@
         });
         dom.addEventListener('wheel', e => {
           e.preventDefault();
-          this.zoom = Math.max(7, Math.min(20, this.zoom + e.deltaY * 0.01));
+          this.zoom = Math.max(7.5, Math.min(22, this.zoom + e.deltaY * 0.01));
         }, { passive: false });
 
         this.initialized = true;
@@ -956,8 +1036,8 @@
       }
       setView(mode) {
         this.autoOrbit = false;
-        if (mode === 'wall') { this.rotY = 0.05; this.rotX = 0.25; this.zoom = 10.5; }
-        else { this.rotY = -0.58; this.rotX = 0.36; this.zoom = 13.0; }
+        if (mode === 'wall') { this.rotY = 0.25; this.rotX = 0.26; this.zoom = 10.5; }
+        else { this.rotY = -0.62; this.rotX = 0.34; this.zoom = 13.5; }
       }
       resize() {
         if (!this.initialized || !this.container) return;
@@ -969,30 +1049,38 @@
       updatePhysics(tiltDeg, dispMm, hum, alertLevel) {
         if (!this.initialized) return;
         this.wallGroup.rotation.z = -(tiltDeg * Math.PI / 180) * 1.6;
-        this.wallGroup.position.x = 1.9 + (dispMm * 0.018);
-        this.waterMesh.position.y = -1.35 + (hum / 100.0) * 1.75;
+        this.wallGroup.position.x = 1.65 + (dispMm * 0.018);
+        this.waterMesh.position.y = -1.0 + (hum / 100.0) * 1.95;
+        this.waterMesh.scale.y = 0.5 + (hum / 100.0) * 3.5;
+        this.drainMat.emissiveIntensity = hum > 45 ? 0.9 : 0.15;
         this.rainIntensity = Math.max(0, (hum - 30) / 70);
         this.rainMat.opacity = this.rainIntensity > 0.1 ? Math.min(0.85, this.rainIntensity) : 0;
-        this.crackMat.opacity = Math.min(1, dispMm / 12);
+        this.crackMat.opacity = Math.min(1, dispMm / 10);
         const col = alertLevel === 'CRITICAL' ? 0xef4444 : (alertLevel === 'WARNING' ? 0xf59e0b : 0x10b981);
         this.beaconMat.color.setHex(col);
+        this.haloMat.color.setHex(col);
       }
       animate() {
         requestAnimationFrame(() => this.animate());
         if (!this.initialized) return;
-        if (this.autoOrbit && !this.dragging) this.rotY += 0.0025;
+        if (this.autoOrbit && !this.dragging) this.rotY += 0.0022;
+        this.pulsePhase += 0.05;
+        if (this.haloRing) {
+          const s = 1 + Math.sin(this.pulsePhase) * 0.22;
+          this.haloRing.scale.set(s, s, 1);
+        }
         if (this.rainPoints && this.rainMat.opacity > 0) {
           const pos = this.rainPoints.geometry.attributes.position.array;
           for (let i = 1; i < pos.length; i += 3) {
-            pos[i] -= 0.16;
-            if (pos[i] < -1.5) pos[i] = 7.5;
+            pos[i] -= 0.18;
+            if (pos[i] < -1.8) pos[i] = 8.5;
           }
           this.rainPoints.geometry.attributes.position.needsUpdate = true;
         }
         this.camera.position.x = Math.sin(this.rotY) * Math.cos(this.rotX) * this.zoom;
-        this.camera.position.y = Math.sin(this.rotX) * this.zoom;
+        this.camera.position.y = 0.6 + Math.sin(this.rotX) * this.zoom;
         this.camera.position.z = Math.cos(this.rotY) * Math.cos(this.rotX) * this.zoom;
-        this.camera.lookAt(0, 0, 0);
+        this.camera.lookAt(-0.8, 0.5, 0);
         this.renderer.render(this.scene, this.camera);
       }
     }
