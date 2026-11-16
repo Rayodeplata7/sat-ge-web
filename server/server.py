@@ -216,7 +216,7 @@ def serial_worker():
                                 h = round(max(5.0, min(100.0, ((3800.0 - raw_soil) / 2600.0) * 100.0)), 1)
                                 dist_cm = max(0.2, 5.0 - (raw_ir / 4095.0) * 4.6)
                                 d = round(max(0.0, (5.0 - dist_cm) * 10.0), 2)
-                                v = round(abs((acc_z / 256.0) - 1.0), 3)
+                                v = round(abs((math.sqrt(acc_x * acc_x + acc_y * acc_y + acc_z * acc_z) / 256.0) - 1.0), 3)
                                 tilt_deg = round(math.atan2(math.hypot(acc_x, acc_y), max(1.0, abs(acc_z))) * (180.0 / math.pi), 2)
                                 read_success = True
                         elif len(parts) >= 6 and parts[0] == "00" and parts[1] == "4":
@@ -282,7 +282,7 @@ def serial_worker():
                         state["raw_ir"] = int(round(((5.0 - max(0.2, 5.0 - state["disp"] / 10.0)) / 4.6) * 4095.0))
                         state["raw_soil"] = int(round(3800.0 - (state["hum"] / 100.0) * 2600.0))
                         state["acc_z"] = int(round(256.0 + state["vib"] * 256.0))
-                    elif not state["cable_fault"]:
+                    elif not state["cable_fault"] and not state["serial_connected"]:
                         # Sin hardware conectado y sin simulación activa: reportar DESCONECTADO (cero datos inventados)
                         state["port"] = "SIN HARDWARE"
                         state["status"] = "DESCONECTADO"
