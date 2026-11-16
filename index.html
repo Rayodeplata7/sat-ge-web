@@ -303,11 +303,16 @@
 
           <!-- Hardware-First Controls + Optional Test Simulator -->
           <div class="p-4 bg-[var(--surface-2)] border border-[var(--border)] space-y-3">
-            <div class="flex items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
               <span class="text-xs font-semibold">Fuente de Datos</span>
-              <button id="btnToggleSimMode" onclick="toggleDemoSim()" class="pill-btn pill-ghost py-1 px-3 text-[11px]">
-                <i class="fa-solid fa-flask text-sky-400"></i> Modo Prueba: OFF
-              </button>
+              <div class="flex items-center gap-2">
+                <button id="btnZeroCal" onclick="calibrateSensorsZero()" class="pill-btn pill-ghost py-1 px-3 text-[11px]" title="Fija la posición y luz actual como cero de referencia">
+                  <i class="fa-solid fa-crosshairs text-emerald-400"></i> Tarar Cero
+                </button>
+                <button id="btnToggleSimMode" onclick="toggleDemoSim()" class="pill-btn pill-ghost py-1 px-3 text-[11px]">
+                  <i class="fa-solid fa-flask text-sky-400"></i> Modo Prueba: OFF
+                </button>
+              </div>
             </div>
             <div id="simControlsBox" class="hidden space-y-2 pt-2 border-t border-[var(--border)]">
               <div class="flex items-center justify-between text-xs">
@@ -663,15 +668,31 @@
         this.gamma = 18.5;
         this.H = 3.2;
         this.beta_deg = 40.0;
+        this.zeroDispMm = 0.0;
+        this.zeroTiltDeg = 0.0;
+        this.lastRawDispMm = 0.0;
+        this.lastRawTiltDeg = 0.0;
+      }
+      calibrateZero() {
+        this.zeroDispMm = this.lastRawDispMm;
+        this.zeroTiltDeg = this.lastRawTiltDeg;
+      }
+      resetZero() {
+        this.zeroDispMm = 0.0;
+        this.zeroTiltDeg = 0.0;
       }
       processChannels(rawFsr, rawIr, rawSoil, accX, accY, accZ) {
         const force = rawFsr > 65 ? Math.min(4.4, (rawFsr - 65) * 0.01467) : 0.0;
         const distCm = Math.max(0.2, 5.0 - (rawIr / 4095.0) * 4.6);
-        const dispMm = Math.max(0.0, (5.0 - distCm) * 10.0);
+        const rawDispMm = Math.max(0.0, (5.0 - distCm) * 10.0);
         const hum = Math.max(5.0, Math.min(100.0, ((3800.0 - rawSoil) / 2600.0) * 100.0));
         const azSafe = Math.max(1.0, Math.abs(accZ));
-        const tiltDeg = Math.atan2(Math.hypot(accX, accY), azSafe) * (180.0 / Math.PI);
-        const vibG = Math.abs((accZ / 256.0) - 1.0);
+        const rawTiltDeg = Math.atan2(Math.hypot(accX, accY), azSafe) * (180.0 / Math.PI);
+        this.lastRawDispMm = rawDispMm;
+        this.lastRawTiltDeg = rawTiltDeg;
+        const dispMm = Math.abs(rawDispMm - this.zeroDispMm);
+        const tiltDeg = Math.abs(rawTiltDeg - this.zeroTiltDeg);
+        const vibG = Math.abs((Math.hypot(accX, accY, accZ) / 256.0) - 1.0);
         return { force, dispMm, hum, tiltDeg, vibG };
       }
       computeFactorOfSafety(force, dispMm, hum, tiltDeg, vibG) {
@@ -1356,7 +1377,7 @@
       if (stream.mode !== 'SIM') {
         const issues = [];
         if (ax === 0 && ay === 0 && Math.abs(az) < 20) issues.push('ADXL345 sin respuesta I2C (revisar GPIO21/22 y CS a 3.3V)');
-        if (soil <= 15 || soil >= 4090) issues.push(`Sonda Humedad desconectada o en corto (ADC=${soil})`);
+        if (soil <= 15) issues.push(`Sonda Humedad en corto a GND (ADC=${soil})`);
         if (fsr >= 4090) issues.push(`Sensor FSR saturado/en corto (ADC=${fsr})`);
         if (ir >= 4090) issues.push(`Sensor IR fuera de rango (ADC=${ir})`);
         if (issues.length > 0) {
@@ -1530,11 +1551,17 @@
         : '<i class="fa-solid fa-volume-high text-xs"></i><span class="hidden sm:inline">Voz y Alarma</span>';
     }
 
+    function calibrateSensorsZero() {
+      geoSolver.calibrateZero();
+      addEventLog('Sensores tarados a cero', 'Posición actual fijada como referencia base (0.0 mm / 0.00°)', 'INFO');
+    }
+
     function toggleDemoSim() {
       audioEngine.init();
       if (stream.mode === 'SIM') {
         stream.autoDetectLocalServer(false).then(ok => { if (!ok) stream.startIdle(); });
       } else {
+        geoSolver.resetZero();
         stream.startSim();
       }
     }
