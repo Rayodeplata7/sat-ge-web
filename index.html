@@ -522,14 +522,14 @@
             <div class="w-10 h-10 bg-[var(--surface-2)] border border-[var(--border)] flex items-center justify-center">
               <i class="fa-solid fa-mobile-screen text-base"></i>
             </div>
-            <h3 class="text-lg font-bold">App Web y Servidor</h3>
+            <h3 class="text-lg font-bold">App Android y Servidor</h3>
             <p class="text-sm text-[var(--text-muted)] leading-relaxed">
-              Instala esta página como aplicación en tu celular o computador, o enlaza con el servidor local.
+              Descarga e instala la aplicación nativa Android (.apk) en tu celular, o enlaza con el servidor local.
             </p>
           </div>
           <div class="flex flex-col gap-2">
+            <a href="sat-geo-alerta.apk" download class="pill-btn pill-primary w-full justify-center">Descargar App Android (.apk)</a>
             <button onclick="autoDetectLocalServer(true)" class="pill-btn pill-ghost w-full justify-center">Buscar Servidor Local</button>
-            <button id="btnInstallPWA" onclick="installPWA()" class="pill-btn pill-ghost w-full justify-center">Instalar App Web</button>
           </div>
         </div>
       </div>
@@ -558,9 +558,13 @@
             <span class="text-sm font-bold">Memoria Técnica (PDF)</span>
             <span class="text-xs text-[var(--text-muted)]">Informe de ingeniería</span>
           </a>
+          <a href="sat-geo-alerta.apk" download class="glass-card glass-card-interactive p-4 flex flex-col gap-1">
+            <span class="text-sm font-bold">App Android Instalable (.apk)</span>
+            <span class="text-xs text-[var(--text-muted)]">Instalación directa en celular (5.6 MB)</span>
+          </a>
           <a href="sat_geo_android_app_kotlin.zip" download class="glass-card glass-card-interactive p-4 flex flex-col gap-1">
-            <span class="text-sm font-bold">App Android (Kotlin)</span>
-            <span class="text-xs text-[var(--text-muted)]">Alertas móviles USB y Wi-Fi</span>
+            <span class="text-sm font-bold">Código Fuente Android (Kotlin)</span>
+            <span class="text-xs text-[var(--text-muted)]">Proyecto completo Android Studio</span>
           </a>
           <a href="firmware/firmware_esp32_helios/firmware_esp32_helios.ino" download class="glass-card glass-card-interactive p-4 flex flex-col gap-1">
             <span class="text-sm font-bold">Firmware ESP32 (.ino)</span>
