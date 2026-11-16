@@ -204,8 +204,8 @@
             SAT-GEO <span class="font-normal text-xs text-[var(--text-muted)] ml-1">Alerta Temprana</span>
           </div>
           <div class="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-1">
-            <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-400 text-emerald-400 pulse-ring inline-block"></span>
-            <span id="txtConnectionStatus">Modo Interactivo · Sector K4+800</span>
+            <span id="statusDot" class="w-2 h-2 rounded-full bg-amber-400 text-amber-400 pulse-ring inline-block"></span>
+            <span id="txtConnectionStatus">Esperando Sensores Reales (ESP32)</span>
           </div>
         </div>
       </div>
@@ -225,13 +225,17 @@
 
       <!-- Action Pills -->
       <div class="flex items-center gap-2 order-2 lg:order-3">
+        <button id="btnHeaderUSB" onclick="toggleSerialConnection()" class="pill-btn pill-primary" title="Conectar ESP32 por cable USB">
+          <i class="fa-brands fa-usb text-xs"></i>
+          <span>Conectar USB</span>
+        </button>
         <button id="btnMute" onclick="toggleAudioAlarm()" class="pill-btn pill-ghost" title="Activar o silenciar voz y alarma">
           <i class="fa-solid fa-volume-high text-xs"></i>
-          <span class="hidden sm:inline">Voz y Alarma</span>
+          <span class="hidden sm:inline">Voz</span>
         </button>
         <button id="btnThemeToggle" onclick="toggleTheme()" class="pill-btn pill-ghost" title="Cambiar modo visual">
           <i id="iconTheme" class="fa-solid fa-sun text-xs"></i>
-          <span id="lblTheme" class="hidden sm:inline">Modo Claro</span>
+          <span id="lblTheme" class="hidden sm:inline">Claro</span>
         </button>
       </div>
 
@@ -295,23 +299,25 @@
             </div>
           </div>
 
-          <!-- Interactive Simulator Controls (For easy live demonstration) -->
+          <!-- Hardware-First Controls + Optional Test Simulator -->
           <div class="p-4 bg-[var(--surface-2)] border border-[var(--border)] space-y-3">
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-semibold">Simulador Interactivo de Clima</span>
-              <span id="lblRainIntensity" class="font-num text-[var(--text-muted)]">0% Lluvia</span>
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs font-semibold">Fuente de Datos</span>
+              <button id="btnToggleSimMode" onclick="toggleDemoSim()" class="pill-btn pill-ghost py-1 px-3 text-[11px]">
+                <i class="fa-solid fa-flask text-sky-400"></i> Modo Prueba: OFF
+              </button>
             </div>
-            <input id="sliderRain" type="range" min="0" max="100" value="0" class="sat-slider" oninput="onRainSlider(this.value)">
-            <div class="flex flex-wrap gap-2 pt-1">
-              <button onclick="setQuickScenario('normal')" class="pill-btn pill-ghost py-1.5 px-3 text-xs">
-                <i class="fa-solid fa-sun text-amber-400"></i> Día Normal
-              </button>
-              <button onclick="setQuickScenario('rain')" class="pill-btn pill-ghost py-1.5 px-3 text-xs">
-                <i class="fa-solid fa-cloud-showers-heavy text-sky-400"></i> Lluvia Fuerte
-              </button>
-              <button onclick="setQuickScenario('seismic')" class="pill-btn pill-ghost py-1.5 px-3 text-xs">
-                <i class="fa-solid fa-wave-square text-red-400"></i> Sismo
-              </button>
+            <div id="simControlsBox" class="hidden space-y-2 pt-2 border-t border-[var(--border)]">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-[var(--text-muted)]">Prueba manual sin sensores</span>
+                <span id="lblRainIntensity" class="font-num text-[var(--text-muted)]">0% Lluvia</span>
+              </div>
+              <input id="sliderRain" type="range" min="0" max="100" value="0" class="sat-slider" oninput="onRainSlider(this.value)">
+              <div class="flex flex-wrap gap-2 pt-1">
+                <button onclick="setQuickScenario('normal')" class="pill-btn pill-ghost py-1 px-3 text-xs">Normal</button>
+                <button onclick="setQuickScenario('rain')" class="pill-btn pill-ghost py-1 px-3 text-xs">Lluvia</button>
+                <button onclick="setQuickScenario('seismic')" class="pill-btn pill-ghost py-1 px-3 text-xs">Sismo</button>
+              </div>
             </div>
           </div>
 
@@ -1186,14 +1192,19 @@
       startServerIngress() {
         this.stopAll(); this.mode = 'SERVER';
         const base = this.localBase || '';
-        this.setConnectionUI('Servidor Local · Conectado', 'bg-emerald-400 text-emerald-400');
+        this.setConnectionUI('Servidor Local · Esperando ESP32', 'bg-amber-400 text-amber-400');
         this.pollTimer = setInterval(async () => {
           try {
             const res = await fetch(`${base}/api/telemetry`, { signal: AbortSignal.timeout(800) });
             if (!res.ok) throw new Error();
             const d = await res.json();
-            this.emitRaw(d.raw_fsr ?? 78, d.raw_ir ?? 120, d.raw_soil ?? 3250, d.acc_x ?? 1, d.acc_y ?? 0, d.acc_z ?? 256);
-          } catch { this.startSim(); }
+            if (d.serial_connected) {
+              this.setConnectionUI(`ESP32 Conectado (${d.port || 'USB'})`, 'bg-emerald-400 text-emerald-400');
+              this.emitRaw(d.raw_fsr ?? 78, d.raw_ir ?? 120, d.raw_soil ?? 3250, d.acc_x ?? 1, d.acc_y ?? 0, d.acc_z ?? 256);
+            } else {
+              this.setConnectionUI('Servidor Local · Esperando ESP32 (USB)', 'bg-amber-400 text-amber-400');
+            }
+          } catch { this.startIdle(); }
         }, 120);
       }
       async connectWifi(ip) {
@@ -1205,7 +1216,7 @@
           const res = await fetch(`http://${ip}/api/telemetry`, { signal: AbortSignal.timeout(2000) });
           if (!res.ok) throw new Error();
           this.stopAll(); this.mode = 'WIFI';
-          this.setConnectionUI(`Wi-Fi ESP32 · ${ip}`, 'bg-sky-400 text-sky-400');
+          this.setConnectionUI(`Wi-Fi ESP32 · ${ip}`, 'bg-emerald-400 text-emerald-400');
           document.getElementById('btnConnectWifi').textContent = 'Desconectar Wi-Fi';
           showConnectFeedback(`Conectado por Wi-Fi a ${ip}.`, 'ok');
           addEventLog('Conexión Wi-Fi activa', `Estación en ${ip}`, 'INFO');
@@ -1215,7 +1226,7 @@
               if (!r.ok) throw new Error();
               const d = await r.json();
               this.emitRaw(d.raw_fsr ?? 78, d.raw_ir ?? 120, d.raw_soil ?? 3250, d.acc_x ?? 1, d.acc_y ?? 0, d.acc_z ?? 256);
-            } catch { this.startSim(); }
+            } catch { this.startIdle(); }
           }, 80);
         } catch {
           showConnectFeedback(`No respondió http://${ip}/api/telemetry. Revisa tu conexión Wi-Fi.`, 'err');
@@ -1230,10 +1241,13 @@
           const port = await navigator.serial.requestPort();
           await port.open({ baudRate: 115200 });
           this.stopAll(); this.serialPort = port; this.mode = 'SERIAL';
-          this.setConnectionUI('USB Conectado · Tiempo Real', 'bg-emerald-400 text-emerald-400');
+          this.setConnectionUI('USB Conectado · Sensores en Vivo', 'bg-emerald-400 text-emerald-400');
           document.getElementById('btnConnectUSB').textContent = 'Desconectar USB';
+          document.getElementById('btnHeaderUSB').innerHTML = '<i class="fa-brands fa-usb text-xs"></i><span>USB Activo</span>';
+          document.getElementById('simControlsBox').classList.add('hidden');
+          document.getElementById('btnToggleSimMode').innerHTML = '<i class="fa-solid fa-flask text-sky-400"></i> Modo Prueba: OFF';
           showConnectFeedback('Estación ESP32 conectada por cable USB.', 'ok');
-          addEventLog('Sensor USB conectado', 'Lectura directa a 115200 baud', 'INFO');
+          addEventLog('Sensor USB conectado', 'Lectura real de 6 canales a 115200 baud', 'INFO');
           this.readSerialLoop();
         } catch {
           showConnectFeedback('No se pudo abrir el puerto USB (cierra el Monitor Serie si está abierto).', 'warn');
@@ -1267,12 +1281,25 @@
             }
           }
         } catch {}
-        this.startSim();
+        this.startIdle();
+      }
+      startIdle() {
+        this.stopAll(); this.mode = 'IDLE';
+        this.setConnectionUI('Esperando Sensores Reales (USB / Wi-Fi)', 'bg-amber-400 text-amber-400');
+        document.getElementById('btnConnectUSB').textContent = 'Conectar USB';
+        document.getElementById('btnHeaderUSB').innerHTML = '<i class="fa-brands fa-usb text-xs"></i><span>Conectar USB</span>';
+        document.getElementById('btnConnectWifi').textContent = 'Conectar Wi-Fi';
+        document.getElementById('btnToggleSimMode').innerHTML = '<i class="fa-solid fa-flask text-sky-400"></i> Modo Prueba: OFF';
+        document.getElementById('simControlsBox').classList.add('hidden');
       }
       startSim() {
         this.stopAll(); this.mode = 'SIM';
-        this.setConnectionUI('Modo Interactivo · Sector K4+800', 'bg-emerald-400 text-emerald-400');
+        this.setConnectionUI('Modo Prueba (Sin Sensores)', 'bg-sky-400 text-sky-400');
         document.getElementById('btnConnectUSB').textContent = 'Conectar USB';
+        document.getElementById('btnHeaderUSB').innerHTML = '<i class="fa-brands fa-usb text-xs"></i><span>Conectar USB</span>';
+        document.getElementById('btnConnectWifi').textContent = 'Conectar Wi-Fi';
+        document.getElementById('btnToggleSimMode').innerHTML = '<i class="fa-solid fa-flask text-sky-400"></i> Modo Prueba: ON';
+        document.getElementById('simControlsBox').classList.remove('hidden');
         document.getElementById('btnConnectWifi').textContent = 'Conectar Wi-Fi';
         let t = 0;
         this.simTimer = setInterval(() => {
@@ -1465,9 +1492,17 @@
         : '<i class="fa-solid fa-volume-high text-xs"></i><span class="hidden sm:inline">Voz y Alarma</span>';
     }
 
-    function toggleSerialConnection() { if (stream.mode === 'SERIAL') stream.startSim(); else stream.connectUSB(); }
+    function toggleDemoSim() {
+      if (stream.mode === 'SIM') {
+        stream.startIdle();
+      } else {
+        stream.startSim();
+      }
+    }
+
+    function toggleSerialConnection() { if (stream.mode === 'SERIAL') stream.startIdle(); else stream.connectUSB(); }
     function toggleWifiConnection() {
-      if (stream.mode === 'WIFI') stream.startSim();
+      if (stream.mode === 'WIFI') stream.startIdle();
       else stream.connectWifi((document.getElementById('inputWifiIp').value || '192.168.4.1').trim());
     }
     function toggleOscilloscopeMode() { document.getElementById('btnToggleDSO').textContent = signalChart.toggleMode(); }
@@ -1494,7 +1529,7 @@
     window.addEventListener('DOMContentLoaded', () => {
       twin3D.init();
       window.addEventListener('resize', () => { twin3D.resize(); signalChart.resize(); mohrChart.resize(); });
-      stream.autoDetectLocalServer(false).then(ok => { if (!ok) stream.startSim(); });
+      stream.autoDetectLocalServer(false).then(ok => { if (!ok) stream.startIdle(); });
       if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
     });
   </script>
