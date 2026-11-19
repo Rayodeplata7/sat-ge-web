@@ -1,4 +1,5 @@
 ﻿import os
+import csv
 import json
 import math
 import time
@@ -51,28 +52,30 @@ def serve_presentation():
             return f.read()
     return "Archivo de presentacion no encontrado", 404
 
-# Estado global del sistema en tiempo real
+# Estado global del sistema en tiempo real (hardware-first: sin valores inventados)
 state = {
-    "hum": 18.0,          # % Agua
-    "force": 0.20,        # Newtons
-    "disp": 0.5,          # mm (desplazamiento)
-    "vib": 0.04,          # g (vibración sísmica)
-    "tilt": 0.12,         # deg (inclinación ADXL345)
-    "moment": 0.04,       # N*m (momento flector de volcamiento)
-    "raw_fsr": 78,
-    "raw_ir": 120,
-    "raw_soil": 3250,
-    "acc_x": 1,
+    "hum": 0.0,
+    "force": 0.0,
+    "disp": 0.0,
+    "vib": 0.0,
+    "tilt": 0.0,
+    "moment": 0.0,
+    "raw_fsr": 0,
+    "raw_ir": 0,
+    "raw_soil": 0,
+    "acc_x": 0,
     "acc_y": 0,
-    "acc_z": 256,
-    "fs": 2.35,           # Factor de Seguridad
-    "status": "SEGURO",   # SEGURO, PRECAUCION, COLAPSO, DESCONECTADO
-    "ttf": "∞ (ESTABLE)", # Tiempo para colapso
+    "acc_z": 0,
+    "fs": 0.0,
+    "status": "DESCONECTADO",
+    "ttf": "--",
     "serial_connected": False,
-    "port": "SIMULADOR",
+    "port": "SIN HARDWARE",
     "last_update": datetime.now().strftime("%H:%M:%S.%f")[:-3],
     "cable_fault": False,
-    "sim_storm": False
+    "sim_storm": False,
+    "momento": "M1_REPOSO",
+    "tare_requested": False
 }
 
 state_lock = threading.Lock()
@@ -81,8 +84,9 @@ state_lock = threading.Lock()
 # Base de Datos SQLite para Historial Completo
 # -------------------------------------------------------------
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=5.0)
     c = conn.cursor()
+    c.execute('PRAGMA journal_mode=WAL;')
     c.execute('''
         CREATE TABLE IF NOT EXISTS telemetry (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,18 +99,55 @@ def init_db():
             status TEXT
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS sensor_samples (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            momento TEXT,
+            raw_fsr INTEGER,
+            force_n REAL,
+            raw_ir INTEGER,
+            disp_mm REAL,
+            raw_soil INTEGER,
+            hum_pct REAL,
+            acc_x INTEGER,
+            acc_y INTEGER,
+            acc_z INTEGER,
+            tilt_deg REAL,
+            vib_g REAL,
+            fs REAL,
+            status TEXT
+        )
+    ''')
     conn.commit()
     conn.close()
 
-def save_reading(hum, force, disp, vib, fs, status):
+def save_reading(hum, force, disp, vib, fs, status, snap=None):
+    if not snap or (not snap.get("serial_connected") and not snap.get("sim_storm")):
+        return
     conn = None
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=5.0)
         c = conn.cursor()
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         c.execute('''
             INSERT INTO telemetry (timestamp, hum, force, disp, vib, fs, status)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), hum, force, disp, vib, fs, status))
+        ''', (ts[:19], hum, force, disp, vib, fs, status))
+        if snap and snap.get("serial_connected"):
+            c.execute('''
+                INSERT INTO sensor_samples (
+                    timestamp, momento, raw_fsr, force_n, raw_ir, disp_mm,
+                    raw_soil, hum_pct, acc_x, acc_y, acc_z, tilt_deg, vib_g, fs, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                ts, snap.get("momento", "M1_REPOSO"),
+                int(snap.get("raw_fsr", 0)), float(force),
+                int(snap.get("raw_ir", 0)), float(disp),
+                int(snap.get("raw_soil", 0)), float(hum),
+                int(snap.get("acc_x", 0)), int(snap.get("acc_y", 0)), int(snap.get("acc_z", 0)),
+                float(snap.get("tilt", 0.0)), float(vib), float(fs), str(status)
+            ))
         conn.commit()
     except Exception as e:
         print(f"Error saving to DB: {e}")
@@ -146,10 +187,28 @@ def serial_worker():
     global state
     db_counter = 0
     sim_t = 0
-    
+
     while True:
         ser = None
         target_port = None
+        # Auto-Tara de 10 muestras + Filtro EMA (paridad exacta con Web y Android)
+        has_base = False
+        tare_n = 0
+        sum_fsr = sum_ir = sum_ax = sum_ay = sum_az = 0.0
+        base_fsr = 65.0
+        base_ir = 4095.0
+        base_ax = 0.0
+        base_ay = 0.0
+        base_az = 256.0
+        ema_fsr = None
+        prev_ax = prev_ay = 0.0
+        prev_az = 256.0
+        vib_peak = 0.0
+        last_raw_f = 65.0
+        last_raw_ir = 4095.0
+        last_ax = 0.0
+        last_ay = 0.0
+        last_az = 256.0
         
         if SERIAL_AVAILABLE:
             all_ports = list(serial.tools.list_ports.comports())
@@ -176,10 +235,15 @@ def serial_worker():
             except Exception as e:
                 ser = None
         
-        # Loop de lectura o simulación
+        # Loop de lectura o simulación (con re-escaneo hot-plug cada 2s si no hay puerto abierto)
+        no_port_ticks = 0
         while True:
             read_success = False
             line = ""
+            if ser is None:
+                no_port_ticks += 1
+                if no_port_ticks >= 10:
+                    break
             if ser and ser.is_open:
                 try:
                     while ser.in_waiting > 0:
@@ -212,12 +276,62 @@ def serial_worker():
                                 acc_x = int(float(parts[5]))     # ADXL345 X
                                 acc_y = int(float(parts[6]))     # ADXL345 Y
                                 acc_z = int(float(parts[7]))     # ADXL345 Z
-                                f = round(min(4.4, (raw_f - 65.0) * 0.01467), 2) if raw_f > 65 else 0.0
-                                h = round(max(5.0, min(100.0, ((3800.0 - raw_soil) / 2600.0) * 100.0)), 1)
-                                dist_cm = max(0.2, 5.0 - (raw_ir / 4095.0) * 4.6)
-                                d = round(max(0.0, (5.0 - dist_cm) * 10.0), 2)
-                                v = round(abs((math.sqrt(acc_x * acc_x + acc_y * acc_y + acc_z * acc_z) / 256.0) - 1.0), 3)
-                                tilt_deg = round(math.atan2(math.hypot(acc_x, acc_y), max(1.0, abs(acc_z))) * (180.0 / math.pi), 2)
+
+                                with state_lock:
+                                    if state.get("tare_requested"):
+                                        state["tare_requested"] = False
+                                        has_base = True
+                                        tare_n = 10
+                                        base_fsr = ema_fsr if ema_fsr is not None else float(raw_f)
+                                        base_ir = float(raw_ir)
+                                        base_ax, base_ay, base_az = float(acc_x), float(acc_y), float(acc_z)
+                                        vib_peak = 0.0
+
+                                ema_fsr = float(raw_f) if ema_fsr is None else (ema_fsr * 0.80 + raw_f * 0.20)
+                                if not has_base:
+                                    tare_n += 1
+                                    sum_fsr += ema_fsr
+                                    sum_ir += float(raw_ir)
+                                    sum_ax += float(acc_x)
+                                    sum_ay += float(acc_y)
+                                    sum_az += float(acc_z)
+                                    base_fsr = sum_fsr / tare_n
+                                    base_ir = sum_ir / tare_n
+                                    base_ax = sum_ax / tare_n
+                                    base_ay = sum_ay / tare_n
+                                    base_az = sum_az / tare_n
+                                    prev_ax, prev_ay, prev_az = float(acc_x), float(acc_y), float(acc_z)
+                                    if tare_n >= 10:
+                                        has_base = True
+
+                                # 1) FSR-406 con banda muerta anti-jitter (55 cuentas ADC)
+                                eff_fsr = max(0.0, abs(ema_fsr - base_fsr) - 55.0)
+                                f = round(min(4.4, eff_fsr * 0.008), 2)
+
+                                # 2) Sonda Humedad Suelo (GPIO32, 4095 seco -> 1295 saturado)
+                                h = round(max(8.0, min(100.0, ((4095.0 - raw_soil) / 2800.0) * 100.0 + 8.0)), 1)
+
+                                # 3) Sensor IR P/N 1102 relativo a reposo (banda muerta 35 ADC)
+                                delta_ir = abs(raw_ir - base_ir)
+                                d = round(min(45.0, max(0.0, (delta_ir - 35.0) * 0.015)), 2)
+
+                                # 4) ADXL345 ángulo 3D relativo al vector de montaje + vibración pasa-altos
+                                mag1 = math.sqrt(acc_x * acc_x + acc_y * acc_y + acc_z * acc_z)
+                                mag2 = math.sqrt(base_ax * base_ax + base_ay * base_ay + base_az * base_az)
+                                if mag1 > 10.0 and mag2 > 10.0:
+                                    cos_a = max(-1.0, min(1.0, (acc_x * base_ax + acc_y * base_ay + acc_z * base_az) / (mag1 * mag2)))
+                                    raw_tilt = math.degrees(math.acos(cos_a))
+                                else:
+                                    raw_tilt = 0.0
+                                tilt_deg = 0.0 if raw_tilt < 0.8 else round(raw_tilt, 2)
+
+                                dv = math.sqrt((acc_x - prev_ax) ** 2 + (acc_y - prev_ay) ** 2 + (acc_z - prev_az) ** 2) / 256.0
+                                prev_ax, prev_ay, prev_az = float(acc_x), float(acc_y), float(acc_z)
+                                vib_peak = max(vib_peak * 0.85, dv if dv > 0.04 else 0.0)
+                                v = round(vib_peak, 3)
+
+                                last_raw_f, last_raw_ir = float(raw_f), float(raw_ir)
+                                last_ax, last_ay, last_az = float(acc_x), float(acc_y), float(acc_z)
                                 read_success = True
                         elif len(parts) >= 6 and parts[0] == "00" and parts[1] == "4":
                             # Protocolo SAT-GEO 4 Canales
@@ -298,11 +412,12 @@ def serial_worker():
                     state["ttf"] = ttf
                 state["last_update"] = datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
-            # Guardar en base de datos cada 2 segundos (no saturar)
+            # Guardar en base de datos cada 1 segundo (5 ciclos x 200 ms) cuando hay hardware
             db_counter += 1
-            if db_counter >= 10:
+            if db_counter >= 5:
                 with state_lock:
-                    save_reading(state["hum"], state["force"], state["disp"], state["vib"], state["fs"], state["status"])
+                    snap = dict(state)
+                save_reading(snap["hum"], snap["force"], snap["disp"], snap["vib"], snap["fs"], snap["status"], snap)
                 db_counter = 0
 
             time.sleep(0.2) # 5 Hz update al frontend
@@ -358,6 +473,37 @@ def serve_matlab(filename):
 def serve_android_zip():
     return send_from_directory(WEB_DEPLOY_DIR, "sat_geo_android_app_kotlin.zip")
 
+@app.route("/sat-geo-alerta.apk")
+def serve_android_apk():
+    return send_from_directory(WEB_DEPLOY_DIR, "sat-geo-alerta.apk")
+
+@app.route("/api/export.csv")
+def export_csv():
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("""
+            SELECT timestamp, momento, raw_fsr, force_n, raw_ir, disp_mm,
+                   raw_soil, hum_pct, acc_x, acc_y, acc_z, tilt_deg, vib_g, fs, status
+            FROM sensor_samples ORDER BY id ASC
+        """)
+        rows = c.fetchall()
+    finally:
+        if conn is not None:
+            conn.close()
+    buf = io.StringIO()
+    buf.write("\ufeff")
+    writer = csv.writer(buf, lineterminator="\n")
+    writer.writerow(["timestamp", "momento", "raw_fsr", "force_N", "raw_ir", "disp_mm", "raw_soil", "hum_pct", "acc_x", "acc_y", "acc_z", "tilt_deg", "vib_g", "FS", "status"])
+    for r in rows:
+        writer.writerow(["" if x is None else x for x in r])
+    return app.response_class(
+        buf.getvalue(),
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=sat_geo_datos_reales_4_sensores.csv"}
+    )
+
 @app.route("/api/telemetry")
 def get_telemetry():
     with state_lock:
@@ -393,6 +539,20 @@ def control():
                     state["moment"] = 0.18
             if "cable_fault" in data:
                 state["cable_fault"] = bool(data["cable_fault"])
+            if "momento" in data and isinstance(data["momento"], str):
+                clean_m = "".join(ch for ch in data["momento"][:40] if ch.isalnum() or ch in ("_", "-", " ")).lstrip("- ")
+                if clean_m:
+                    state["momento"] = clean_m
+            if data.get("tare"):
+                state["tare_requested"] = True
+            if data.get("clear_samples"):
+                try:
+                    c_del = sqlite3.connect(DB_PATH, timeout=5.0)
+                    c_del.execute("DELETE FROM sensor_samples")
+                    c_del.commit()
+                    c_del.close()
+                except Exception as e:
+                    print(f"Error clearing sensor_samples: {e}")
             if "set_hum" in data:
                 state["hum"] = _bounded_float(data["set_hum"], 0.0, 100.0)
             if "set_force" in data:

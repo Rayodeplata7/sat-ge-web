@@ -211,9 +211,12 @@
       </div>
 
       <!-- Segmented Navigation -->
-      <nav class="seg-wrap order-3 lg:order-2 w-full lg:w-auto justify-center overflow-x-auto">
+      <nav class="seg-wrap order-3 lg:order-2 w-full lg:w-auto justify-start sm:justify-center overflow-x-auto">
         <button onclick="switchTab('overview')" id="tabBtn-overview" class="seg-btn active">
           <i class="fa-solid fa-shield-halved mr-1.5 text-xs"></i>Resumen en Vivo
+        </button>
+        <button onclick="switchTab('data')" id="tabBtn-data" class="seg-btn">
+          <i class="fa-solid fa-database mr-1.5 text-xs"></i>Datos y Ensayos
         </button>
         <button onclick="switchTab('analysis')" id="tabBtn-analysis" class="seg-btn">
           <i class="fa-solid fa-chart-line mr-1.5 text-xs"></i>Mapas y Señales
@@ -490,6 +493,119 @@
           <div class="w-full h-72 border border-[var(--border)] bg-[#070A10] relative">
             <canvas id="mohrCanvas" class="w-full h-full block"></canvas>
           </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==================== TAB 2: DATOS Y ENSAYOS (RECOLECCIÓN 4 SENSORES) ==================== -->
+    <section id="tab-data" class="tab-content hidden space-y-6">
+
+      <!-- Control de Grabación por Momentos -->
+      <div class="glass-card p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold">Recolección de Datos en Tiempo Real — 4 Sensores</h2>
+            <p class="text-xs text-[var(--text-muted)]">Graba mediciones reales (ADC crudo + unidades físicas) etiquetadas por cada momento del ensayo</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span id="badgeRecState" class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400">
+              <i class="fa-solid fa-circle text-[8px]"></i><span><span id="lblRecVerb">Grabando</span>: <span id="lblRecordedCount" class="font-num">0</span> muestras</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Selector de Momento / Etapa -->
+        <div class="space-y-2">
+          <div class="text-xs font-semibold text-[var(--text-muted)]">1. Selecciona el Momento actual del ensayo:</div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="setMomento('M1_REPOSO')" id="momBtn-M1_REPOSO" class="pill-btn pill-primary text-xs py-1.5 px-3.5">M1: Reposo</button>
+            <button onclick="setMomento('M2_HUMEDAD')" id="momBtn-M2_HUMEDAD" class="pill-btn pill-ghost text-xs py-1.5 px-3.5">M2: Humedad / Lluvia</button>
+            <button onclick="setMomento('M3_EMPUJE')" id="momBtn-M3_EMPUJE" class="pill-btn pill-ghost text-xs py-1.5 px-3.5">M3: Empuje Muro</button>
+            <button onclick="setMomento('M4_INCLINACION')" id="momBtn-M4_INCLINACION" class="pill-btn pill-ghost text-xs py-1.5 px-3.5">M4: Inclinación / Grieta</button>
+            <button onclick="setMomento('M5_RECUPERACION')" id="momBtn-M5_RECUPERACION" class="pill-btn pill-ghost text-xs py-1.5 px-3.5">M5: Recuperación</button>
+          </div>
+        </div>
+
+        <!-- Acciones de Grabación y Exportación -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[var(--border)]">
+          <div class="flex flex-wrap gap-2">
+            <button id="btnToggleRec" onclick="toggleRecording()" class="pill-btn pill-primary">
+              <i class="fa-solid fa-pause text-xs"></i> Pausar Grabación
+            </button>
+            <button onclick="captureSingleSnapshot()" class="pill-btn pill-ghost">
+              <i class="fa-solid fa-camera text-xs"></i> Capturar Muestra Puntual
+            </button>
+            <button onclick="clearRecordedData()" class="pill-btn pill-ghost">
+              <i class="fa-solid fa-trash text-xs"></i> Nuevo Ensayo
+            </button>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="exportData('csv')" class="pill-btn pill-primary">
+              <i class="fa-solid fa-file-excel text-xs"></i> Exportar CSV (Excel)
+            </button>
+            <button onclick="exportData('matlab')" class="pill-btn pill-ghost">
+              <i class="fa-solid fa-code text-xs"></i> Exportar MATLAB (.m)
+            </button>
+            <button onclick="exportData('json')" class="pill-btn pill-ghost">JSON</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumen Estadístico Automático por Momento -->
+      <div class="glass-card overflow-hidden">
+        <div class="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
+          <div>
+            <h3 class="text-sm font-bold">Resumen Estadístico por Momento (4 Sensores)</h3>
+            <p class="text-xs text-[var(--text-muted)]">Comparativa automática de promedios y máximos para informe y sustentación</p>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-num whitespace-nowrap">
+            <thead class="bg-[var(--surface-solid)] text-[var(--text-muted)] border-b border-[var(--border)]">
+              <tr>
+                <th class="px-4 py-3 font-sans">Momento</th>
+                <th class="px-4 py-3">N</th>
+                <th class="px-4 py-3">FSR (ADC / Máx N)</th>
+                <th class="px-4 py-3">IR (ADC / Máx mm)</th>
+                <th class="px-4 py-3">Humedad (ADC / Máx %)</th>
+                <th class="px-4 py-3">ADXL (Tilt ° · Máx Vib g)</th>
+                <th class="px-4 py-3">FS Mín</th>
+              </tr>
+            </thead>
+            <tbody id="momentStatsBody" class="divide-y divide-[var(--border)]">
+              <tr><td colspan="7" class="px-4 py-4 text-center text-[var(--text-muted)] font-sans">Conecta el ESP32 para comenzar a recolectar muestras reales.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tabla en Vivo de Muestras Crudas + Físicas -->
+      <div class="glass-card overflow-hidden">
+        <div class="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
+          <div>
+            <h3 class="text-sm font-bold">Registro en Vivo de los 4 Sensores (Últimas 25 muestras)</h3>
+            <p class="text-xs text-[var(--text-muted)]">Lecturas reales en ADC (0–4095) y unidades físicas convertidas</p>
+          </div>
+          <span id="lblActiveMomento" class="text-xs font-num px-2.5 py-1 bg-[var(--surface-2)] border border-[var(--border)]">M1_REPOSO</span>
+        </div>
+        <div class="overflow-x-auto max-h-80 overflow-y-auto">
+          <table class="w-full text-left text-xs font-num whitespace-nowrap">
+            <thead class="bg-[var(--surface-solid)] text-[var(--text-muted)] border-b border-[var(--border)] sticky top-0 z-10">
+              <tr>
+                <th class="px-3 py-2.5">Hora</th>
+                <th class="px-3 py-2.5 font-sans">Momento</th>
+                <th class="px-3 py-2.5">FSR (ADC · N)</th>
+                <th class="px-3 py-2.5">IR (ADC · mm)</th>
+                <th class="px-3 py-2.5">Humedad (ADC · %)</th>
+                <th class="px-3 py-2.5">ADXL345 (X,Y,Z · ° · g)</th>
+                <th class="px-3 py-2.5">FS</th>
+              </tr>
+            </thead>
+            <tbody id="liveDataTableBody" class="divide-y divide-[var(--border)]">
+              <tr><td colspan="7" class="px-4 py-4 text-center text-[var(--text-muted)] font-sans">Esperando muestras reales...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -1174,29 +1290,199 @@
     // 6. FLIGHT RECORDER & EVENT LOG
     // =========================================================================
     class FlightRecorder {
-      constructor() { this.rows = []; this.maxRows = 12000; }
-      push(r) { this.rows.push(r); if (this.rows.length > this.maxRows) this.rows.shift(); }
+      constructor() {
+        this.rows = [];
+        this.maxRows = 20000;
+        this.recording = true;
+        this.momento = 'M1_REPOSO';
+        this.lastUiRender = 0;
+      }
+      push(r, force = false) {
+        if (!this.recording && !force) return;
+        this.rows.push(r);
+        if (this.rows.length > this.maxRows) this.rows.shift();
+        const now = Date.now();
+        if (force || now - this.lastUiRender > 350) {
+          this.lastUiRender = now;
+          this.renderTables();
+        }
+      }
+      clear() {
+        this.rows = [];
+        this.renderTables(true);
+      }
+      renderTables(force = false) {
+        const cntEl = document.getElementById('lblRecordedCount');
+        if (cntEl) cntEl.textContent = this.rows.length;
+
+        const tabData = document.getElementById('tab-data');
+        if (!force && tabData && tabData.classList.contains('hidden')) return;
+
+        const statsBody = document.getElementById('momentStatsBody');
+        const liveBody = document.getElementById('liveDataTableBody');
+        if (!statsBody || !liveBody) return;
+
+        if (!this.rows.length) {
+          statsBody.innerHTML = '<tr><td colspan="7" class="px-4 py-4 text-center text-[var(--text-muted)] font-sans">Sin muestras grabadas todavía.</td></tr>';
+          liveBody.innerHTML = '<tr><td colspan="7" class="px-4 py-4 text-center text-[var(--text-muted)] font-sans">Esperando muestras reales...</td></tr>';
+          return;
+        }
+
+        // Resumen estadístico por momento (4 sensores completos)
+        const groups = {};
+        for (const r of this.rows) {
+          if (!groups[r.momento]) groups[r.momento] = { n: 0, sFsr: 0, mF: 0, sIr: 0, mD: 0, sSoil: 0, mH: 0, sT: 0, mT: 0, mV: 0, minFs: 99 };
+          const g = groups[r.momento];
+          g.n++;
+          g.sFsr += r.rawFsr; g.mF = Math.max(g.mF, r.force);
+          g.sIr += r.rawIr;   g.mD = Math.max(g.mD, r.dispMm);
+          g.sSoil += r.rawSoil; g.mH = Math.max(g.mH, r.hum);
+          g.sT += r.tiltDeg; g.mT = Math.max(g.mT, r.tiltDeg);
+          g.mV = Math.max(g.mV, r.vibG || 0);
+          g.minFs = Math.min(g.minFs, r.fs);
+        }
+
+        statsBody.innerHTML = Object.entries(groups).map(([m, g]) => `
+          <tr>
+            <td class="px-4 py-2.5 font-sans font-semibold">${m}</td>
+            <td class="px-4 py-2.5">${g.n}</td>
+            <td class="px-4 py-2.5">${Math.round(g.sFsr / g.n)} · <strong>${g.mF.toFixed(2)} N</strong></td>
+            <td class="px-4 py-2.5">${Math.round(g.sIr / g.n)} · <strong>${g.mD.toFixed(1)} mm</strong></td>
+            <td class="px-4 py-2.5">${Math.round(g.sSoil / g.n)} · <strong>${g.mH.toFixed(1)}%</strong></td>
+            <td class="px-4 py-2.5">${(g.sT / g.n).toFixed(2)}° / <strong>${g.mT.toFixed(2)}°</strong> · ${g.mV.toFixed(3)} g</td>
+            <td class="px-4 py-2.5 font-bold ${g.minFs < 1.0 ? 'text-red-400' : (g.minFs < 1.35 ? 'text-amber-400' : 'text-emerald-400')}">${g.minFs.toFixed(2)}</td>
+          </tr>
+        `).join('');
+
+        // Últimas 25 muestras en vivo (4 sensores completos + vibración)
+        const recent = this.rows.slice(-25).reverse();
+        liveBody.innerHTML = recent.map(r => `
+          <tr>
+            <td class="px-3 py-2 text-[var(--text-muted)]">${r.timeStr}</td>
+            <td class="px-3 py-2 font-sans">${r.momento}</td>
+            <td class="px-3 py-2">${r.rawFsr} · ${r.force.toFixed(2)} N</td>
+            <td class="px-3 py-2">${r.rawIr} · ${r.dispMm.toFixed(1)} mm</td>
+            <td class="px-3 py-2">${r.rawSoil} · ${r.hum.toFixed(1)}%</td>
+            <td class="px-3 py-2">(${r.ax},${r.ay},${r.az}) · ${r.tiltDeg.toFixed(2)}° · ${(r.vibG || 0).toFixed(3)} g</td>
+            <td class="px-3 py-2 font-bold">${r.fs.toFixed(2)}</td>
+          </tr>
+        `).join('');
+      }
       export(fmt) {
-        if (!this.rows.length) return;
+        if (!this.rows.length) {
+          addEventLog('Sin datos para exportar', 'Conecta los sensores o captura muestras primero', 'INFO');
+          return;
+        }
         let content = '', mime = 'text/plain', ext = fmt;
         if (fmt === 'csv') {
-          content = 'timestamp,force_N,disp_mm,hum_pct,tilt_deg,vib_g,FS,status\n' +
-            this.rows.map(r => `${r.ts},${r.force.toFixed(2)},${r.dispMm.toFixed(2)},${r.hum.toFixed(1)},${r.tiltDeg.toFixed(2)},${r.vibG.toFixed(3)},${r.fs.toFixed(2)},${r.alertLevel}`).join('\n');
-          mime = 'text/csv';
+          content = '\uFEFFtimestamp,momento,raw_fsr,force_N,raw_ir,disp_mm,raw_soil,hum_pct,acc_x,acc_y,acc_z,tilt_deg,vib_g,FS,status\n' +
+            this.rows.map(r => `${r.ts},${r.momento},${r.rawFsr},${r.force.toFixed(2)},${r.rawIr},${r.dispMm.toFixed(2)},${r.rawSoil},${r.hum.toFixed(1)},${r.ax},${r.ay},${r.az},${r.tiltDeg.toFixed(2)},${(r.vibG || 0).toFixed(3)},${r.fs.toFixed(2)},${r.alertLevel}`).join('\n');
+          mime = 'text/csv;charset=utf-8';
         } else if (fmt === 'json') {
           content = JSON.stringify(this.rows, null, 2); mime = 'application/json';
         } else {
-          const fArr = this.rows.slice(-500).map(r => r.force.toFixed(2)).join(' ');
-          const dArr = this.rows.slice(-500).map(r => r.dispMm.toFixed(2)).join(' ');
-          content = `% SAT-GEO Export\nforce_N = [${fArr}];\ndisp_mm = [${dArr}];\nplot(force_N); grid on;`;
+          const sl = this.rows;
+          const mArr = sl.map(r => `'${r.momento}'`).join(' ');
+          const rawFsrArr = sl.map(r => r.rawFsr).join(' ');
+          const fArr = sl.map(r => r.force.toFixed(2)).join(' ');
+          const rawIrArr = sl.map(r => r.rawIr).join(' ');
+          const dArr = sl.map(r => r.dispMm.toFixed(2)).join(' ');
+          const rawSoilArr = sl.map(r => r.rawSoil).join(' ');
+          const hArr = sl.map(r => r.hum.toFixed(1)).join(' ');
+          const axArr = sl.map(r => r.ax).join(' ');
+          const ayArr = sl.map(r => r.ay).join(' ');
+          const azArr = sl.map(r => r.az).join(' ');
+          const tArr = sl.map(r => r.tiltDeg.toFixed(2)).join(' ');
+          const vArr = sl.map(r => (r.vibG || 0).toFixed(3)).join(' ');
+          const fsArr = sl.map(r => r.fs.toFixed(2)).join(' ');
+          content = `% SAT-GEO 4.0 PRO — Exportacion Completa 4 Sensores (${sl.length} muestras)\n` +
+            `momento = {${mArr}};\n` +
+            `raw_fsr = [${rawFsrArr}]; force_N = [${fArr}];\n` +
+            `raw_ir = [${rawIrArr}]; disp_mm = [${dArr}];\n` +
+            `raw_soil = [${rawSoilArr}]; hum_pct = [${hArr}];\n` +
+            `acc_x = [${axArr}]; acc_y = [${ayArr}]; acc_z = [${azArr}];\n` +
+            `tilt_deg = [${tArr}]; vib_g = [${vArr}]; FS = [${fsArr}];\n` +
+            `figure('Name','SAT-GEO 4 Sensores — Analisis Multi-Momento');\n` +
+            `subplot(2,2,1); plot(force_N,'LineWidth',1.5); grid on; title('Sensor 1: FSR-406 Fuerza (N)'); ylabel('N');\n` +
+            `subplot(2,2,2); plot(disp_mm,'LineWidth',1.5); grid on; title('Sensor 2: IR P/N 1102 Grieta (mm)'); ylabel('mm');\n` +
+            `subplot(2,2,3); plot(hum_pct,'LineWidth',1.5); grid on; title('Sensor 3: Humedad Suelo (%)'); ylabel('%');\n` +
+            `subplot(2,2,4); plot(tilt_deg,'LineWidth',1.5); hold on; plot(vib_g*10,'--','LineWidth',1.2); plot(FS,':','LineWidth',1.6); grid on; legend('Tilt (deg)','Vib (x10 g)','FS'); title('Sensor 4: ADXL345 & Factor de Seguridad');\n`;
           ext = 'm';
         }
         const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob); a.download = `sat_geo_telemetria.${ext}`; a.click();
+        a.href = url; a.download = `sat_geo_4_sensores_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.${ext}`; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
       }
     }
     const flightRecorder = new FlightRecorder();
+    let lastProcessedRow = null;
+    let momentoAbortCtrl = null;
+
+    function setMomento(m) {
+      flightRecorder.momento = m;
+      const lbl = document.getElementById('lblActiveMomento');
+      if (lbl) lbl.textContent = m;
+      document.querySelectorAll('[id^="momBtn-"]').forEach(b => {
+        b.classList.remove('pill-primary');
+        b.classList.add('pill-ghost');
+      });
+      const active = document.getElementById(`momBtn-${m}`);
+      if (active) { active.classList.remove('pill-ghost'); active.classList.add('pill-primary'); }
+      addEventLog('Cambio de Momento', `Etiquetando muestras como ${m}`, 'INFO');
+      if (stream.mode === 'SERVER') {
+        if (momentoAbortCtrl) momentoAbortCtrl.abort();
+        momentoAbortCtrl = new AbortController();
+        fetch(`${stream.localBase || ''}/api/control`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ momento: m }),
+          signal: momentoAbortCtrl.signal
+        }).catch(() => {});
+      }
+    }
+
+    function toggleRecording() {
+      flightRecorder.recording = !flightRecorder.recording;
+      const btn = document.getElementById('btnToggleRec');
+      const badge = document.getElementById('badgeRecState');
+      const verb = document.getElementById('lblRecVerb');
+      if (flightRecorder.recording) {
+        btn.innerHTML = '<i class="fa-solid fa-pause text-xs"></i> Pausar Grabación';
+        badge.className = 'inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400';
+        if (verb) verb.textContent = 'Grabando';
+      } else {
+        btn.innerHTML = '<i class="fa-solid fa-circle-dot text-xs"></i> Reanudar Grabación';
+        badge.className = 'inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-amber-500/15 text-amber-400';
+        if (verb) verb.textContent = 'Pausado';
+      }
+    }
+
+    function captureSingleSnapshot() {
+      if (!lastProcessedRow) {
+        addEventLog('Sin señal activa', 'Conecta los sensores reales para capturar una muestra', 'INFO');
+        return;
+      }
+      const tag = stream.mode === 'SIM' ? `SIM_${flightRecorder.momento}` : flightRecorder.momento;
+      flightRecorder.push({
+        ...lastProcessedRow,
+        momento: tag,
+        ts: new Date().toISOString(),
+        timeStr: new Date().toLocaleTimeString('es-CO', { hour12: false })
+      }, true);
+      addEventLog('Muestra puntual guardada', `${tag} · FS ${lastProcessedRow.fs.toFixed(2)}`, 'INFO');
+    }
+
+    function clearRecordedData() {
+      flightRecorder.clear();
+      if (stream.mode === 'SERVER') {
+        fetch(`${stream.localBase || ''}/api/control`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clear_samples: true })
+        }).catch(() => {});
+      }
+      addEventLog('Nuevo ensayo iniciado', 'Contador de recolección y base local reiniciados a 0', 'INFO');
+    }
 
     let lastLoggedState = null;
     function addEventLog(title, detail, level = 'INFO') {
@@ -1270,20 +1556,37 @@
       startServerIngress() {
         this.stopAll(); this.mode = 'SERVER';
         const base = this.localBase || '';
+        let inFlight = false;
+        let failCount = 0;
         this.setConnectionUI('Servidor Local · Esperando ESP32', 'bg-amber-400 text-amber-400');
+        fetch(`${base}/api/control`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ momento: flightRecorder.momento })
+        }).catch(() => {});
         this.pollTimer = setInterval(async () => {
+          if (inFlight) return;
+          inFlight = true;
           try {
             const res = await fetch(`${base}/api/telemetry`, { signal: AbortSignal.timeout(800) });
             if (!res.ok) throw new Error();
             const d = await res.json();
+            failCount = 0;
             if (d.serial_connected) {
               this.setConnectionUI(`ESP32 Conectado (${d.port || 'USB'})`, 'bg-emerald-400 text-emerald-400');
-              this.emitRaw(d.raw_fsr ?? 78, d.raw_ir ?? 120, d.raw_soil ?? 3250, d.acc_x ?? 1, d.acc_y ?? 0, d.acc_z ?? 256);
+              if (d.raw_fsr !== undefined && d.raw_ir !== undefined && d.raw_soil !== undefined) {
+                this.emitRaw(d.raw_fsr, d.raw_ir, d.raw_soil, d.acc_x ?? 0, d.acc_y ?? 0, d.acc_z ?? 256);
+              }
             } else {
+              lastProcessedRow = null;
               this.setConnectionUI('Servidor Local · Esperando ESP32 (USB)', 'bg-amber-400 text-amber-400');
             }
-          } catch { this.startIdle(); }
-        }, 120);
+          } catch {
+            failCount++;
+            if (failCount >= 8) this.startIdle();
+          } finally {
+            inFlight = false;
+          }
+        }, 250);
       }
       async connectWifi(ip) {
         if (location.protocol === 'https:') {
@@ -1363,6 +1666,7 @@
       }
       startIdle() {
         this.stopAll(); this.mode = 'IDLE';
+        lastProcessedRow = null;
         geoSolver.resetZero();
         this.setConnectionUI('Esperando Sensores Reales (USB / Wi-Fi)', 'bg-amber-400 text-amber-400');
         document.getElementById('btnConnectUSB').textContent = 'Conectar USB';
@@ -1398,7 +1702,6 @@
         document.getElementById('btnConnectWifi').textContent = 'Conectar Wi-Fi';
         document.getElementById('btnToggleSimMode').innerHTML = '<i class="fa-solid fa-flask text-sky-400"></i> Modo Prueba: ON';
         document.getElementById('simControlsBox').classList.remove('hidden');
-        document.getElementById('btnConnectWifi').textContent = 'Conectar Wi-Fi';
         let t = 0;
         this.simTimer = setInterval(() => {
           t += 0.06;
@@ -1533,7 +1836,19 @@
         signalChart.render();
         mohrChart.render(res.sigma_eff, res.shearRes, res.alertLevel);
       }
-      flightRecorder.push({ ts: new Date().toISOString(), force: ch.force, dispMm: ch.dispMm, hum: ch.hum, tiltDeg: ch.tiltDeg, vibG: ch.vibG, fs: res.fs, alertLevel: res.alertLevel });
+      lastProcessedRow = {
+        ts: new Date().toISOString(),
+        timeStr: new Date().toLocaleTimeString('es-CO', { hour12: false }),
+        momento: stream.mode === 'SIM' ? `SIM_${flightRecorder.momento}` : flightRecorder.momento,
+        rawFsr: Math.round(fsr), force: ch.force,
+        rawIr: Math.round(ir), dispMm: ch.dispMm,
+        rawSoil: Math.round(soil), hum: ch.hum,
+        ax: Math.round(ax), ay: Math.round(ay), az: Math.round(az),
+        tiltDeg: ch.tiltDeg, vibG: ch.vibG, fs: res.fs, alertLevel: res.alertLevel
+      };
+      if (geoSolver.hasBaseline) {
+        flightRecorder.push(lastProcessedRow);
+      }
     };
 
     function onRainSlider(val) {
@@ -1586,6 +1901,7 @@
       document.getElementById(`tab-${name}`).classList.remove('hidden');
       document.getElementById(`tabBtn-${name}`).classList.add('active');
       if (name === 'overview') setTimeout(() => twin3D.resize(), 60);
+      if (name === 'data') flightRecorder.renderTables(true);
       if (name === 'analysis') {
         setTimeout(() => {
           signalChart.resize(); mohrChart.resize(); initGISMap();
@@ -1609,6 +1925,12 @@
 
     function calibrateSensorsZero() {
       geoSolver.calibrateZero();
+      if (stream.mode === 'SERVER') {
+        fetch(`${stream.localBase || ''}/api/control`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tare: true })
+        }).catch(() => {});
+      }
       addEventLog('Sensores tarados a cero', 'Posición actual fijada como referencia base (0.0 mm / 0.00°)', 'INFO');
     }
 
