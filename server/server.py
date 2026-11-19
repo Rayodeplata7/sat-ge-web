@@ -34,9 +34,10 @@ ALLOWED_ORIGINS = {
 @app.after_request
 def add_cors_headers(response):
     origin = request.headers.get("Origin", "")
-    if origin in ALLOWED_ORIGINS:
+    if origin.lower() in ALLOWED_ORIGINS:
         response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Vary'] = 'Origin'
+    response.headers['Access-Control-Allow-Private-Network'] = 'true'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -463,11 +464,13 @@ def serve_android_zip():
 def serve_android_apk():
     return send_from_directory(WEB_DEPLOY_DIR, "sat-geo-alerta.apk")
 
-@app.route("/api/export.csv")
+@app.route("/api/export.csv", methods=["GET", "OPTIONS"])
 def export_csv():
+    if request.method == "OPTIONS":
+        return "", 204
     conn = None
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=5.0)
         c = conn.cursor()
         c.execute("""
             SELECT timestamp, momento, raw_fsr, force_n, raw_ir, disp_mm,
@@ -490,8 +493,43 @@ def export_csv():
         headers={"Content-Disposition": "attachment; filename=sat_geo_datos_reales_4_sensores.csv"}
     )
 
-@app.route("/api/telemetry")
+@app.route("/api/samples", methods=["GET", "OPTIONS"])
+def get_samples():
+    if request.method == "OPTIONS":
+        return "", 204
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=5.0)
+        c = conn.cursor()
+        c.execute("""
+            SELECT timestamp, momento, raw_fsr, force_n, raw_ir, disp_mm,
+                   raw_soil, hum_pct, acc_x, acc_y, acc_z, tilt_deg, vib_g, fs, status
+            FROM sensor_samples ORDER BY id DESC LIMIT 2000
+        """)
+        rows = c.fetchall()
+    finally:
+        if conn is not None:
+            conn.close()
+    out = []
+    for r in reversed(rows):
+        ts = str(r[0] or "")
+        out.append({
+            "ts": ts,
+            "timeStr": ts[11:19] if len(ts) >= 19 else ts,
+            "momento": r[1] or "M1_REPOSO",
+            "rawFsr": int(r[2] or 0), "force": float(r[3] or 0.0),
+            "rawIr": int(r[4] or 0), "dispMm": float(r[5] or 0.0),
+            "rawSoil": int(r[6] or 0), "hum": float(r[7] or 8.0),
+            "ax": int(r[8] or 0), "ay": int(r[9] or 0), "az": int(r[10] or 0),
+            "tiltDeg": float(r[11] or 0.0), "vibG": float(r[12] or 0.0),
+            "fs": float(r[13] or 1.57), "alertLevel": str(r[14] or "STABLE")
+        })
+    return jsonify(out)
+
+@app.route("/api/telemetry", methods=["GET", "OPTIONS"])
 def get_telemetry():
+    if request.method == "OPTIONS":
+        return "", 204
     with state_lock:
         return jsonify(state)
 
@@ -501,8 +539,10 @@ def _bounded_float(val, lo, hi):
         raise ValueError("Non-finite float")
     return max(lo, min(hi, num))
 
-@app.route("/api/control", methods=["POST"])
+@app.route("/api/control", methods=["POST", "OPTIONS"])
 def control():
+    if request.method == "OPTIONS":
+        return "", 204
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({"success": False, "error": "Invalid JSON object"}), 400

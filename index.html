@@ -705,7 +705,7 @@
           <button onclick="exportData('csv')" class="pill-btn pill-primary">Excel / CSV</button>
           <button onclick="exportData('matlab')" class="pill-btn pill-ghost">MATLAB (.m)</button>
           <button onclick="exportData('json')" class="pill-btn pill-ghost">JSON</button>
-          <a href="/api/export.csv" download class="pill-btn pill-ghost">Base SQLite (.csv)</a>
+          <a id="btnSqliteDownload" href="http://127.0.0.1:5000/api/export.csv" download class="pill-btn pill-ghost">Base SQLite (.csv)</a>
         </div>
       </div>
 
@@ -1527,8 +1527,22 @@
           this.renderTables();
         }
       }
+      async hydrateFromServer(base) {
+        if (this.hydrated || this.rows.length > 5) return;
+        this.hydrated = true;
+        try {
+          const res = await fetch(`${base}/api/samples`, { cache: 'no-store', signal: AbortSignal.timeout(2500) });
+          if (!res.ok) return;
+          const saved = await res.json();
+          if (Array.isArray(saved) && saved.length > 0 && this.rows.length < 5) {
+            this.rows = saved.concat(this.rows).slice(-this.maxRows);
+            this.renderTables(true);
+          }
+        } catch {}
+      }
       clear() {
         this.rows = [];
+        this.hydrated = true;
         this.renderTables(true);
       }
       renderTables(force = false) {
@@ -1754,34 +1768,39 @@
         if (this.reconnectTimer) { clearInterval(this.reconnectTimer); this.reconnectTimer = null; }
       }
       async autoDetectLocalServer(manual = false) {
-        if (location.protocol === 'https:') {
-          if (manual) showConnectFeedback('Desde HTTPS el navegador bloquea HTTP local. Abre en http://localhost:5000 o usa la App Android por Wi-Fi.', 'warn');
-          return false;
+        // Funciona TANTO en http://localhost:5000 COMO directo desde https://rayodeplata7.github.io/sat-ge-web/ (Chrome/Edge permiten localhost como origen seguro)
+        const candidates = (location.port === '5000')
+          ? ['']
+          : ['http://127.0.0.1:5000', 'http://localhost:5000'];
+        for (const base of candidates) {
+          try {
+            const res = await fetch(`${base}/api/telemetry`, { cache: 'no-store', signal: AbortSignal.timeout(2200) });
+            if (res.ok) {
+              this.localBase = base;
+              const sqlLink = document.getElementById('btnSqliteDownload');
+              if (sqlLink) sqlLink.href = `${base}/api/export.csv`;
+              this.startServerIngress();
+              if (manual) showConnectFeedback(`Conectado en vivo al puente local (${base || location.origin}).`, 'ok');
+              return true;
+            }
+          } catch {}
         }
-        const base = (location.port === '5000') ? '' : 'http://localhost:5000';
-        try {
-          const res = await fetch(`${base}/api/telemetry`, { cache: 'no-store', signal: AbortSignal.timeout(2500) });
-          if (res.ok) {
-            this.localBase = base;
-            this.startServerIngress();
-            if (manual) showConnectFeedback('Conectado al servidor local en tiempo real.', 'ok');
-            return true;
-          }
-        } catch {}
-        if (manual) showConnectFeedback('No respondió el servidor local (http://localhost:5000). Reintentando automáticamente...', 'warn');
+        if (manual) showConnectFeedback('No respondió el puente local en 127.0.0.1:5000. Verifica que server.py esté encendido (reintentando automáticamente).', 'warn');
         return false;
       }
       startServerIngress() {
         this.stopAll(); this.mode = 'SERVER';
         const base = this.localBase || '';
         let inFlight = false;
-        this.setConnectionUI('Servidor Local · Esperando ESP32', 'bg-amber-400 text-amber-400');
+        this.setConnectionUI('Puente Local · Esperando ESP32', 'bg-amber-400 text-amber-400');
+        // Hidratar inmediatamente con todas las muestras reales ya guardadas en SQLite desde que conectaste el ESP32
+        flightRecorder.hydrateFromServer(base);
         fetch(`${base}/api/control`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ momento: flightRecorder.momento })
         }).catch(() => {});
 
-        // Polling resiliente (180ms): NUNCA muere permanentemente si el servidor se reinicia 2 segundos
+        // Polling resiliente (180ms): funciona en vivo en GitHub Pages y localhost y NUNCA muere permanentemente
         this.pollTimer = setInterval(async () => {
           if (inFlight) return;
           inFlight = true;
@@ -1796,53 +1815,56 @@
               }
             } else {
               lastProcessedRow = null;
-              this.renderDisconnectedState('Servidor Local · Esperando ESP32', 'Conecta la estación ESP32 para recibir los 4 sensores reales.');
+              this.renderDisconnectedState('Puente Local · Esperando ESP32', 'Conecta la estación ESP32 para recibir los 4 sensores reales.');
             }
           } catch {
             lastProcessedRow = null;
-            this.renderDisconnectedState('Reconectando con servidor local...', 'Esperando respuesta de http://localhost:5000 (reconexión automática activa).');
+            this.renderDisconnectedState('Reconectando con puente local...', 'Esperando respuesta de 127.0.0.1:5000 (reconexión automática activa).');
           } finally {
             inFlight = false;
           }
         }, 180);
       }
       async connectWifi(ip) {
-        if (location.protocol === 'https:') {
-          showConnectFeedback('El navegador bloquea HTTP desde HTTPS. Abre http://localhost:5000 o usa la App Android por Wi-Fi.', 'warn');
+        const clean = ip.trim().replace(/\/+$/, '');
+        const isLocal = clean.startsWith('127.0.0.1') || clean.startsWith('localhost') || clean.startsWith('http://127.0.0.1') || clean.startsWith('http://localhost');
+        const target = (clean.startsWith('http://') || clean.startsWith('https://')) ? `${clean}/api/telemetry` : `http://${clean}/api/telemetry`;
+        if (location.protocol === 'https:' && target.startsWith('http://') && !isLocal) {
+          showConnectFeedback('Desde GitHub Pages (HTTPS) puedes conectarte en vivo vía 127.0.0.1:5000 (puente local) o en tu celular con la App Android directo al Wi-Fi 192.168.4.1.', 'warn');
           return;
         }
         try {
-          const res = await fetch(`http://${ip}/api/telemetry`, { cache: 'no-store', signal: AbortSignal.timeout(2500) });
+          const res = await fetch(target, { cache: 'no-store', signal: AbortSignal.timeout(2500) });
           if (!res.ok) throw new Error();
           this.stopAll(); this.mode = 'WIFI';
-          this.setConnectionUI(`Wi-Fi ESP32 · ${ip}`, 'bg-emerald-400 text-emerald-400');
+          this.setConnectionUI(`Wi-Fi ESP32 · ${clean}`, 'bg-emerald-400 text-emerald-400');
           const bw = document.getElementById('btnConnectWifi');
           if (bw) bw.textContent = 'Desconectar Wi-Fi';
-          showConnectFeedback(`Conectado por Wi-Fi directo a ${ip}.`, 'ok');
-          addEventLog('Conexión Wi-Fi activa', `Estación ESP32 en ${ip}`, 'INFO');
+          showConnectFeedback(`Conectado en vivo a ${clean}.`, 'ok');
+          addEventLog('Conexión Wi-Fi activa', `Estación ESP32 en ${clean}`, 'INFO');
 
           let inFlight = false;
           this.pollTimer = setInterval(async () => {
             if (inFlight) return;
             inFlight = true;
             try {
-              const r = await fetch(`http://${ip}/api/telemetry`, { cache: 'no-store', signal: AbortSignal.timeout(1500) });
+              const r = await fetch(target, { cache: 'no-store', signal: AbortSignal.timeout(1500) });
               if (!r.ok) throw new Error();
               const d = await r.json();
               if (d.serial_connected === false) {
-                this.renderDisconnectedState(`Wi-Fi ${ip} · Esperando ESP32`, 'Servidor conectado, esperando señal del ESP32.');
+                this.renderDisconnectedState(`Wi-Fi ${clean} · Esperando ESP32`, 'Servidor conectado, esperando señal del ESP32.');
               } else if (d.raw_fsr !== undefined && d.raw_ir !== undefined && d.raw_soil !== undefined) {
-                this.setConnectionUI(`Wi-Fi ESP32 · ${ip}`, 'bg-emerald-400 text-emerald-400');
+                this.setConnectionUI(`Wi-Fi ESP32 · ${clean}`, 'bg-emerald-400 text-emerald-400');
                 this.emitRaw(d.raw_fsr, d.raw_ir, d.raw_soil, d.acc_x ?? 0, d.acc_y ?? 0, d.acc_z ?? 256);
               }
             } catch {
-              this.setConnectionUI(`Reconectando Wi-Fi (${ip})...`, 'bg-amber-400 text-amber-400');
+              this.setConnectionUI(`Reconectando Wi-Fi (${clean})...`, 'bg-amber-400 text-amber-400');
             } finally {
               inFlight = false;
             }
           }, 120);
         } catch {
-          showConnectFeedback(`No respondió http://${ip}/api/telemetry. Verifica que estés conectado al Wi-Fi HELIOS-9-MISSION-CONTROL.`, 'err');
+          showConnectFeedback(`No respondió ${target}. Verifica tu Wi-Fi o el puente local 127.0.0.1:5000.`, 'err');
         }
       }
       renderDisconnectedState(statusLine, actionLine) {
@@ -1875,12 +1897,10 @@
           'Buscando Sensores Reales (Wi-Fi / Servidor)...',
           'Enciende tu ESP32 o conéctate por Wi-Fi (192.168.4.1) en la pestaña Wi-Fi y Descargas.'
         );
-        // Watchdog de auto-reconexión cada 2s si estamos en HTTP local
-        if (location.protocol !== 'https:') {
-          this.reconnectTimer = setInterval(() => {
-            if (this.mode === 'IDLE') this.autoDetectLocalServer(false);
-          }, 2000);
-        }
+        // Watchdog de auto-reconexión cada 2s (funciona tanto en GitHub Pages HTTPS como en local)
+        this.reconnectTimer = setInterval(() => {
+          if (this.mode === 'IDLE') this.autoDetectLocalServer(false);
+        }, 2000);
       }
       emitRaw(fsr, ir, soil, ax, ay, az) {
         this.sampleCount++;

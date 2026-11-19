@@ -1,4 +1,4 @@
-const CACHE_NAME = 'helios9-sat-geo-v6';
+const CACHE_NAME = 'helios9-sat-geo-v7';
 const CORE_ASSETS = [
   './',
   './index.html',
