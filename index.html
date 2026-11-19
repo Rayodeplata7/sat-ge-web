@@ -181,6 +181,14 @@
       transition: stroke-dashoffset 0.45s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.35s ease;
     }
 
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(24px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .sat-toast {
+      animation: toastIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border-strong); }
@@ -226,6 +234,10 @@
 
       <!-- Action Pills -->
       <div class="flex items-center gap-2 order-2 lg:order-3">
+        <button id="btnEnableNotif" onclick="enableBrowserNotifications()" class="pill-btn pill-ghost" title="Activar notificaciones de escritorio y alertas de sensores">
+          <i id="iconNotif" class="fa-solid fa-bell text-xs text-amber-400"></i>
+          <span id="lblNotif" class="hidden sm:inline">Alertas</span>
+        </button>
         <button id="btnHeaderWifi" onclick="switchTab('connect')" class="pill-btn pill-primary" title="Conexión Wi-Fi y Descarga APK">
           <i class="fa-solid fa-wifi text-xs"></i>
           <span>Wi-Fi ESP32</span>
@@ -243,6 +255,9 @@
     </div>
   </header>
 
+  <!-- LIVE FLOATING ANOMALY TOAST STACK -->
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 w-[min(24rem,calc(100vw-2rem))] flex flex-col gap-2.5 pointer-events-none"></div>
+
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
 
     <!-- ==================== TAB 1: RESUMEN EN VIVO ==================== -->
@@ -256,10 +271,15 @@
 
           <!-- Top Verdict -->
           <div class="flex items-start justify-between gap-4">
-            <div class="space-y-2">
-              <span id="badgeOpState" class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-amber-500/15 text-amber-400">
-                <i class="fa-solid fa-plug-circle-exclamation text-[10px]"></i> Desconectado
-              </span>
+            <div class="space-y-2 w-full">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span id="badgeOpState" class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-amber-500/15 text-amber-400">
+                  <i class="fa-solid fa-plug-circle-exclamation text-[10px]"></i> Desconectado
+                </span>
+                <span id="badgeAnomalyCount" class="inline-flex items-center gap-1.5 text-[11px] font-num font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                  <i class="fa-solid fa-radar text-[10px]"></i> 0 Anomalías
+                </span>
+              </div>
               <h1 id="txtOperatorTitle" class="font-display text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight">
                 Sin Lectura de Sensores
               </h1>
@@ -765,37 +785,53 @@
         }
         if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
       }
-      playBeep(freq = 660, duration = 0.09, gainVal = 0.04) {
+      playBeep(freq = 660, duration = 0.09, gainVal = 0.05, type = 'sine', delaySec = 0) {
         if (this.muted) return;
         this.init();
         if (!this.ctx) return;
+        const start = this.ctx.currentTime + delaySec;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-        gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(gainVal, start);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + duration);
+        osc.start(start);
+        osc.stop(start + duration);
       }
-      triggerAlert(isCritical) {
+      triggerAlert(severity = 'WARNING') {
         if (this.muted) return;
+        const isCrit = severity === true || severity === 'CRITICAL';
+        const isFault = severity === 'FAULT';
         const now = Date.now();
-        if (now - this.lastAlarm < (isCritical ? 1500 : 3500)) return;
+        if (now - this.lastAlarm < (isCrit ? 1400 : 2800)) return;
         this.lastAlarm = now;
-        this.playBeep(isCritical ? 880 : 540, isCritical ? 0.22 : 0.12, isCritical ? 0.08 : 0.04);
+        if (isCrit) {
+          this.playBeep(920, 0.16, 0.09, 'sawtooth', 0);
+          this.playBeep(740, 0.18, 0.09, 'sawtooth', 0.18);
+        } else if (isFault) {
+          this.playBeep(420, 0.11, 0.07, 'square', 0);
+          this.playBeep(320, 0.14, 0.07, 'square', 0.14);
+        } else {
+          this.playBeep(680, 0.10, 0.05, 'sine', 0);
+          this.playBeep(820, 0.10, 0.05, 'sine', 0.12);
+        }
       }
-      announce(msg) {
+      announce(msg, opts = {}) {
         if (this.muted || !('speechSynthesis' in window)) return;
+        const minGap = opts.minGapMs ?? 4000;
         const now = Date.now();
-        if (now - this.lastVoice < 7000) return;
+        if (!opts.force && (now - this.lastVoice < minGap)) return;
         this.lastVoice = now;
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(msg);
-        u.lang = 'es-ES';
-        u.rate = 1.02;
+        const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+        const esVoice = voices.find(v => /^es-(CO|MX|ES|419)/i.test(v.lang)) || voices.find(v => /^es/i.test(v.lang));
+        if (esVoice) u.voice = esVoice;
+        u.lang = esVoice ? esVoice.lang : 'es-ES';
+        u.rate = 1.04;
         window.speechSynthesis.speak(u);
       }
       toggleMute() {
@@ -1724,26 +1760,446 @@
       const now = new Date().toLocaleTimeString('es-CO', { hour12: false });
       const badgeCls = level === 'CRITICAL'
         ? 'text-red-400 bg-red-500/15'
-        : (level === 'WARNING' ? 'text-amber-400 bg-amber-500/15' : 'text-emerald-400 bg-emerald-500/15');
+        : (level === 'FAULT'
+          ? 'text-purple-400 bg-purple-500/15'
+          : (level === 'WARNING' ? 'text-amber-400 bg-amber-500/15' : 'text-emerald-400 bg-emerald-500/15'));
       const row = document.createElement('div');
       row.className = 'px-5 py-3 flex items-center justify-between gap-4';
-      row.innerHTML = `
-        <div class="min-w-0">
-          <div class="font-semibold truncate">${title}</div>
-          <div class="text-xs text-[var(--text-muted)] truncate">${detail}</div>
-        </div>
-        <div class="flex items-center gap-3 shrink-0">
-          <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full ${badgeCls}">${level}</span>
-          <span class="font-num text-xs text-[var(--text-muted)]">${now}</span>
-        </div>
-      `;
+
+      const left = document.createElement('div');
+      left.className = 'min-w-0';
+      const tEl = document.createElement('div');
+      tEl.className = 'font-semibold truncate';
+      tEl.textContent = title;
+      const dEl = document.createElement('div');
+      dEl.className = 'text-xs text-[var(--text-muted)] truncate';
+      dEl.textContent = detail;
+      left.append(tEl, dEl);
+
+      const right = document.createElement('div');
+      right.className = 'flex items-center gap-3 shrink-0';
+      const bEl = document.createElement('span');
+      bEl.className = `text-[11px] font-bold px-2.5 py-0.5 rounded-full ${badgeCls}`;
+      bEl.textContent = level === 'FAULT' ? 'FALLO SENSOR' : level;
+      const tmEl = document.createElement('span');
+      tmEl.className = 'font-num text-xs text-[var(--text-muted)]';
+      tmEl.textContent = now;
+      right.append(bEl, tmEl);
+
+      row.append(left, right);
       list.prepend(row);
-      while (list.children.length > 20) list.removeChild(list.lastChild);
+      while (list.children.length > 30) list.removeChild(list.lastChild);
     }
     function clearEventLog() {
       document.getElementById('eventLogList').innerHTML = '';
-      addEventLog('Historial limpiado', 'Esperando nuevos eventos del talud', 'INFO');
+      addEventLog('Historial limpiado', 'Esperando nuevos eventos y anomalías de los 4 sensores', 'INFO');
     }
+
+    // =========================================================================
+    // 6B. REAL-TIME 8-DETECTOR ANOMALY WATCHDOG + TOASTS + OS PUSH ALERTS
+    // =========================================================================
+    function syncNotifButtonUI() {
+      const btn = document.getElementById('btnEnableNotif');
+      const icon = document.getElementById('iconNotif');
+      const lbl = document.getElementById('lblNotif');
+      if (!btn || !icon || !lbl) return;
+      if (!('Notification' in window)) {
+        icon.className = 'fa-solid fa-bell-slash text-xs text-slate-400';
+        lbl.textContent = 'Alertas';
+        return;
+      }
+      if (Notification.permission === 'granted') {
+        icon.className = 'fa-solid fa-bell text-xs text-emerald-400';
+        lbl.textContent = 'Alertas ON';
+      } else if (Notification.permission === 'denied') {
+        icon.className = 'fa-solid fa-bell-slash text-xs text-red-400';
+        lbl.textContent = 'Bloqueado';
+      } else {
+        icon.className = 'fa-solid fa-bell text-xs text-amber-400';
+        lbl.textContent = 'Activar Alertas';
+      }
+    }
+
+    async function enableBrowserNotifications() {
+      audioEngine.init();
+      if (!('Notification' in window)) {
+        pushToast({
+          severity: 'WARNING', sensor: 'Sistema',
+          title: 'Alertas en pantalla activas',
+          detail: 'Tu navegador no soporta notificaciones nativas de escritorio, pero verás todas las alertas flotantes aquí.'
+        });
+        return;
+      }
+      try {
+        const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+        syncNotifButtonUI();
+        if (perm === 'granted') {
+          audioEngine.playBeep(880, 0.09, 0.05);
+          pushToast({
+            severity: 'INFO', sensor: 'Sistema',
+            title: 'Notificaciones de Escritorio Activadas',
+            detail: 'Recibirás avisos inmediatos ante cualquier anomalía o comportamiento erróneo en los 4 sensores.'
+          });
+          new Notification('SAT-GEO · Alertas Inteligentes Activas', {
+            body: 'Monitoreo de anomalías en tiempo real para FSR-406, IR 1102, Humedad y ADXL345.',
+            icon: 'img/icon-192.png'
+          });
+        } else {
+          pushToast({
+            severity: 'WARNING', sensor: 'Permiso',
+            title: 'Notificaciones de escritorio no permitidas',
+            detail: 'Las alertas flotantes, sonoras y de voz en esta página siguen 100% activas.'
+          });
+        }
+      } catch {}
+    }
+
+    function pushToast({ severity = 'WARNING', sensor = 'Sensor', title, detail }) {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+
+      const styles = {
+        CRITICAL: { stripe: '#EF4444', badgeBg: 'rgba(239,68,68,0.18)', badgeTxt: '#EF4444', icon: 'fa-triangle-exclamation' },
+        FAULT:    { stripe: '#A855F7', badgeBg: 'rgba(168,85,247,0.18)', badgeTxt: '#C084FC', icon: 'fa-microchip' },
+        WARNING:  { stripe: '#F59E0B', badgeBg: 'rgba(245,158,11,0.18)', badgeTxt: '#F59E0B', icon: 'fa-circle-exclamation' },
+        INFO:     { stripe: '#10B981', badgeBg: 'rgba(16,185,129,0.18)', badgeTxt: '#10B981', icon: 'fa-circle-check' }
+      }[severity] || { stripe: '#F59E0B', badgeBg: 'rgba(245,158,11,0.18)', badgeTxt: '#F59E0B', icon: 'fa-circle-exclamation' };
+
+      const card = document.createElement('div');
+      card.className = 'sat-toast pointer-events-auto bg-[var(--surface-solid)] border border-[var(--border-strong)] shadow-[var(--shadow)] p-3.5 rounded-none flex items-start gap-3';
+      card.style.borderLeft = `4px solid ${styles.stripe}`;
+
+      const iconWrap = document.createElement('div');
+      iconWrap.className = 'w-7 h-7 shrink-0 flex items-center justify-center mt-0.5';
+      iconWrap.style.background = styles.badgeBg;
+      iconWrap.style.color = styles.badgeTxt;
+      const ic = document.createElement('i');
+      ic.className = `fa-solid ${styles.icon} text-xs`;
+      iconWrap.appendChild(ic);
+
+      const body = document.createElement('div');
+      body.className = 'min-w-0 flex-1 space-y-0.5';
+
+      const topRow = document.createElement('div');
+      topRow.className = 'flex items-center justify-between gap-2';
+      const sensorTag = document.createElement('span');
+      sensorTag.className = 'text-[10px] font-bold uppercase tracking-wider font-num';
+      sensorTag.style.color = styles.badgeTxt;
+      sensorTag.textContent = `${sensor} · ${new Date().toLocaleTimeString('es-CO', { hour12: false })}`;
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'text-[var(--text-muted)] hover:text-[var(--text)] text-xs leading-none px-1';
+      closeBtn.textContent = '×';
+      closeBtn.onclick = () => card.remove();
+      topRow.append(sensorTag, closeBtn);
+
+      const tEl = document.createElement('div');
+      tEl.className = 'text-xs font-bold text-[var(--text)] leading-snug';
+      tEl.textContent = title;
+
+      const dEl = document.createElement('div');
+      dEl.className = 'text-[11px] text-[var(--text-muted)] leading-snug';
+      dEl.textContent = detail;
+
+      body.append(topRow, tEl, dEl);
+      card.append(iconWrap, body);
+      container.prepend(card);
+
+      while (container.children.length > 4) container.lastChild.remove();
+      setTimeout(() => { if (card.parentNode) card.remove(); }, severity === 'CRITICAL' || severity === 'FAULT' ? 7500 : 5200);
+    }
+
+    class SensorAnomalyWatchdog {
+      constructor() {
+        this.toastCooldowns = new Map();
+        this.logCooldowns = new Map();
+        this.reset();
+      }
+      reset() {
+        this.prevFsr = null;
+        this.prevIr = null;
+        this.prevSoil = null;
+        this.lastAdxlTuple = null;
+        this.lastAdxlChangeMs = Date.now();
+        this.wasConnected = false;
+      }
+      notifyConnectionLost() {
+        if (!this.wasConnected) return;
+        this.wasConnected = false;
+        this.dispatch({
+          code: 'LINK_LOST', severity: 'FAULT', sensor: 'ESP32',
+          title: 'Pérdida de Señal con los Sensores',
+          detail: 'Se interrumpió la transmisión en vivo del ESP32. Revisa cable o alimentación.',
+          voice: 'Atención: se perdió la conexión con la estación de sensores.'
+        });
+      }
+      evaluate(rawFsr, rawIr, rawSoil, ax, ay, az, ch, res) {
+        this.wasConnected = true;
+        const now = Date.now();
+        const anomalies = [];
+
+        const jumpFsr  = this.prevFsr  !== null ? Math.abs(rawFsr  - this.prevFsr)  : 0;
+        const jumpIr   = this.prevIr   !== null ? Math.abs(rawIr   - this.prevIr)   : 0;
+        const jumpSoil = this.prevSoil !== null ? Math.abs(rawSoil - this.prevSoil) : 0;
+        this.prevFsr = rawFsr; this.prevIr = rawIr; this.prevSoil = rawSoil;
+
+        const adxlDead = (ax === 0 && ay === 0 && Math.abs(az) < 20);
+        const adxlTuple = `${ax},${ay},${az}`;
+        if (adxlDead || adxlTuple !== this.lastAdxlTuple) {
+          this.lastAdxlTuple = adxlTuple;
+          this.lastAdxlChangeMs = now;
+        }
+
+        // --- A. FALLOS DE HARDWARE Y COMPORTAMIENTOS ERRÓNEOS ---
+        const magG = Math.hypot(ax, ay, az) / 256.0;
+        if (adxlDead) {
+          anomalies.push({
+            code: 'FAULT_ADXL_I2C', severity: 'FAULT', sensor: 'ADXL345',
+            title: 'Error I2C en Acelerómetro ADXL345',
+            detail: 'Sin respuesta en bus I2C (revisar GPIO21/22 y pin CS a 3.3V).',
+            voice: 'Error de sensor: acelerómetro sin respuesta.'
+          });
+        } else if (magG < 0.58 || magG > 1.68) {
+          anomalies.push({
+            code: 'FAULT_ADXL_MAG', severity: 'FAULT', sensor: 'ADXL345',
+            title: 'Lectura Física Anormal en ADXL345',
+            detail: `Vector gravedad fuera de rango (${magG.toFixed(2)} g). Posible impacto fuerte o descalibración.`,
+            voice: 'Lectura anormal detectada en el acelerómetro.'
+          });
+        } else if (now - this.lastAdxlChangeMs >= 6000) {
+          anomalies.push({
+            code: 'FAULT_ADXL_STUCK', severity: 'FAULT', sensor: 'ADXL345',
+            title: 'Sensor ADXL345 Congelado',
+            detail: 'El acelerómetro lleva más de 6 segundos sin refrescar registros I2C.',
+            voice: 'Advertencia: el acelerómetro dejó de actualizar datos.'
+          });
+        }
+
+        if (rawSoil <= 20) {
+          anomalies.push({
+            code: 'FAULT_SOIL_SHORT', severity: 'FAULT', sensor: 'Humedad',
+            title: 'Cortocircuito en Sonda de Humedad',
+            detail: `Lectura en corto a tierra (ADC=${Math.round(rawSoil)}). Revisa electrodos.`,
+            voice: 'Error de sensor: cortocircuito en sonda de humedad.'
+          });
+        }
+
+        if (rawFsr >= 4085) {
+          anomalies.push({
+            code: 'FAULT_FSR_SHORT', severity: 'FAULT', sensor: 'FSR-406',
+            title: 'Saturación / Cortocircuito en FSR-406',
+            detail: `Lectura al tope máximo (ADC=${Math.round(rawFsr)}). Revisa cableado.`,
+            voice: 'Error de sensor: presión en cortocircuito o saturada.'
+          });
+        } else if (geoSolver.hasBaseline && geoSolver.baseFsr > 400 && rawFsr <= 10) {
+          anomalies.push({
+            code: 'FAULT_FSR_OPEN', severity: 'FAULT', sensor: 'FSR-406',
+            title: 'Posible Cable Suelto en FSR-406',
+            detail: `La señal cayó bruscamente de ${Math.round(geoSolver.baseFsr)} a ${Math.round(rawFsr)} ADC.`,
+            voice: 'Error de sensor: posible cable desconectado en sensor de presión.'
+          });
+        }
+
+        // --- B. PICOS SÚBITOS / SALTOS ELÉCTRICOS ANORMALES ---
+        if (geoSolver.hasBaseline) {
+          if (jumpFsr > 480) {
+            anomalies.push({
+              code: 'SPIKE_FSR', severity: 'FAULT', sensor: 'FSR-406',
+              title: 'Salto Eléctrico Brusco en FSR-406',
+              detail: `Variación instantánea de ${Math.round(jumpFsr)} ADC en una sola muestra.`,
+              voice: 'Comportamiento erróneo: pico brusco en sensor de empuje.'
+            });
+          }
+          if (jumpIr > 650) {
+            anomalies.push({
+              code: 'SPIKE_IR', severity: 'WARNING', sensor: 'IR 1102',
+              title: 'Cambio Súbito en Sensor IR',
+              detail: `Salto óptico instantáneo de ${Math.round(jumpIr)} ADC en corona del talud.`,
+              voice: 'Cambio súbito detectado en el sensor infrarrojo.'
+            });
+          }
+          if (jumpSoil > 750) {
+            anomalies.push({
+              code: 'SPIKE_SOIL', severity: 'WARNING', sensor: 'Humedad',
+              title: 'Salto Brusco en Sonda de Humedad',
+              detail: `Cambio repentino de ${Math.round(jumpSoil)} ADC en conductividad del suelo.`,
+              voice: 'Cambio súbito de humedad detectado en el suelo.'
+            });
+          }
+
+          // --- C. DESVIACIONES ANORMALES POR CADA SENSOR (DISPARA AUN CON FS >= 1.35) ---
+          const activeList = [];
+          if (ch.force >= 1.50) {
+            activeList.push('FSR');
+            anomalies.push({
+              code: 'DEV_FSR_CRIT', severity: 'CRITICAL', sensor: 'FSR-406',
+              title: 'Empuje Crítico sobre el Muro',
+              detail: `Presión lateral severa: ${ch.force.toFixed(2)} N (ADC ${Math.round(rawFsr)}).`,
+              voice: 'Alerta crítica: empuje excesivo sobre el muro de contención.'
+            });
+          } else if (ch.force >= 0.25) {
+            activeList.push('FSR');
+            anomalies.push({
+              code: 'DEV_FSR_WARN', severity: 'WARNING', sensor: 'FSR-406',
+              title: 'Empuje Anormal Detectado',
+              detail: `Fuerza fuera de reposo en el talud: ${ch.force.toFixed(2)} N.`,
+              voice: 'Atención: empuje anormal detectado en el muro.'
+            });
+          }
+
+          if (ch.dispMm >= 5.0) {
+            activeList.push('IR');
+            anomalies.push({
+              code: 'DEV_IR_CRIT', severity: 'CRITICAL', sensor: 'IR 1102',
+              title: 'Apertura Crítica de Grieta',
+              detail: `Desplazamiento coronal peligroso: ${ch.dispMm.toFixed(1)} mm.`,
+              voice: 'Alerta crítica: apertura de grieta peligrosa en el talud.'
+            });
+          } else if (ch.dispMm >= 0.8) {
+            activeList.push('IR');
+            anomalies.push({
+              code: 'DEV_IR_WARN', severity: 'WARNING', sensor: 'IR 1102',
+              title: 'Movimiento Detectado en Sensor IR',
+              detail: `Desviación de grieta fuera de lo normal: ${ch.dispMm.toFixed(1)} mm.`,
+              voice: 'Atención: movimiento detectado por el sensor infrarrojo.'
+            });
+          }
+
+          if (ch.hum >= 55.0) {
+            activeList.push('Humedad');
+            anomalies.push({
+              code: 'DEV_SOIL_CRIT', severity: 'CRITICAL', sensor: 'Humedad',
+              title: 'Saturación Hídrica Crítica',
+              detail: `Nivel de agua peligroso en el suelo: ${ch.hum.toFixed(1)}%.`,
+              voice: 'Alerta crítica: suelo altamente saturado de agua.'
+            });
+          } else if (ch.hum >= 20.0) {
+            activeList.push('Humedad');
+            anomalies.push({
+              code: 'DEV_SOIL_WARN', severity: 'WARNING', sensor: 'Humedad',
+              title: 'Infiltración de Humedad Anormal',
+              detail: `Aumento de agua en el terreno: ${ch.hum.toFixed(1)}%.`,
+              voice: 'Atención: aumento anormal de humedad en el suelo.'
+            });
+          }
+
+          if (ch.tiltDeg >= 5.0) {
+            activeList.push('Inclinación');
+            anomalies.push({
+              code: 'DEV_TILT_CRIT', severity: 'CRITICAL', sensor: 'ADXL345',
+              title: 'Inclinación Crítica del Muro',
+              detail: `Desplazamiento angular severo: ${ch.tiltDeg.toFixed(2)}°.`,
+              voice: 'Alerta crítica: inclinación severa detectada en el muro.'
+            });
+          } else if (ch.tiltDeg >= 1.2) {
+            activeList.push('Inclinación');
+            anomalies.push({
+              code: 'DEV_TILT_WARN', severity: 'WARNING', sensor: 'ADXL345',
+              title: 'Inclinación Anormal Detectada',
+              detail: `El muro salió de su ángulo de reposo: ${ch.tiltDeg.toFixed(2)}°.`,
+              voice: 'Atención: inclinación anormal detectada en el muro.'
+            });
+          }
+
+          if (ch.vibG >= 0.22) {
+            activeList.push('Vibración');
+            anomalies.push({
+              code: 'DEV_VIB_CRIT', severity: 'CRITICAL', sensor: 'ADXL345',
+              title: 'Sacudida Sísmica Fuerte',
+              detail: `Aceleración sísmica crítica: ${ch.vibG.toFixed(2)} g (${Math.round(ch.vibG * 1000)} mg).`,
+              voice: 'Alerta sísmica: vibración fuerte detectada en el talud.'
+            });
+          } else if (ch.vibG >= 0.05) {
+            activeList.push('Vibración');
+            anomalies.push({
+              code: 'DEV_VIB_WARN', severity: 'WARNING', sensor: 'ADXL345',
+              title: 'Vibración Anormal en el Talud',
+              detail: `Micro-sismo o impacto detectado: ${ch.vibG.toFixed(2)} g.`,
+              voice: 'Atención: vibración anormal detectada en el terreno.'
+            });
+          }
+
+          // --- D. CORRELACIÓN MULTI-SENSOR (2 O MÁS SENSORES REACCIONANDO A LA VEZ) ---
+          if (activeList.length >= 2) {
+            anomalies.push({
+              code: 'MULTI_SENSOR', severity: 'CRITICAL', sensor: 'Multi-Sensor',
+              title: `Evento Compuesto (${activeList.length} Sensores)`,
+              detail: `Anomalía simultánea en ${activeList.join(' + ')} · FS ${res.fs.toFixed(2)}.`,
+              voice: 'Alerta compuesta: múltiples sensores reportan comportamiento anormal simultáneo.'
+            });
+          }
+        }
+
+        // Actualizar contador en vivo y banner de diagnóstico
+        const cntBadge = document.getElementById('badgeAnomalyCount');
+        const diagBanner = document.getElementById('sensorDiagBanner');
+        if (anomalies.length > 0) {
+          const hasCrit = anomalies.some(a => a.severity === 'CRITICAL');
+          const hasFault = anomalies.some(a => a.severity === 'FAULT');
+          if (cntBadge) {
+            cntBadge.className = hasCrit
+              ? 'inline-flex items-center gap-1.5 text-[11px] font-num font-bold px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/40'
+              : (hasFault
+                ? 'inline-flex items-center gap-1.5 text-[11px] font-num font-bold px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                : 'inline-flex items-center gap-1.5 text-[11px] font-num font-bold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40');
+            cntBadge.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-[10px]"></i> ${anomalies.length} ${anomalies.length === 1 ? 'Anomalía' : 'Anomalías'}`;
+          }
+          if (diagBanner) {
+            diagBanner.classList.remove('hidden');
+            diagBanner.className = hasCrit
+              ? 'p-3 bg-red-500/12 border border-red-500/40 text-xs text-red-400 space-y-1'
+              : (hasFault
+                ? 'p-3 bg-purple-500/12 border border-purple-500/40 text-xs text-purple-300 space-y-1'
+                : 'p-3 bg-amber-500/12 border border-amber-500/40 text-xs text-amber-400 space-y-1');
+            diagBanner.textContent = '';
+            const hdr = document.createElement('strong');
+            hdr.textContent = `Monitor de Anomalías Activo (${anomalies.length}):`;
+            diagBanner.appendChild(hdr);
+            anomalies.slice(0, 3).forEach(a => {
+              const line = document.createElement('div');
+              line.textContent = `• [${a.sensor}] ${a.title} — ${a.detail}`;
+              diagBanner.appendChild(line);
+            });
+          }
+          anomalies.forEach(a => this.dispatch(a));
+        } else {
+          if (cntBadge) {
+            cntBadge.className = 'inline-flex items-center gap-1.5 text-[11px] font-num font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25';
+            cntBadge.innerHTML = '<i class="fa-solid fa-circle-check text-[10px]"></i> 0 Anomalías';
+          }
+          if (diagBanner) diagBanner.classList.add('hidden');
+        }
+        return anomalies;
+      }
+      dispatch(a) {
+        const now = Date.now();
+        const lastToast = this.toastCooldowns.get(a.code) || 0;
+        if (now - lastToast >= 4500) {
+          this.toastCooldowns.set(a.code, now);
+          pushToast(a);
+          audioEngine.triggerAlert(a.severity);
+          if (a.voice) audioEngine.announce(a.voice, { minGapMs: 3800, force: a.severity === 'CRITICAL' });
+          if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification(`SAT-GEO · ${a.title}`, {
+                body: `[${a.sensor}] ${a.detail}`,
+                icon: 'img/icon-192.png',
+                tag: a.code
+              });
+            } catch {}
+          }
+          if (navigator.vibrate && navigator.userActivation && navigator.userActivation.hasActiveActivation) {
+            navigator.vibrate(a.severity === 'CRITICAL' ? [140, 60, 140] : [90]);
+          }
+        }
+        const lastLog = this.logCooldowns.get(a.code) || 0;
+        if (now - lastLog >= 10000) {
+          this.logCooldowns.set(a.code, now);
+          addEventLog(`[${a.sensor}] ${a.title}`, a.detail, a.severity);
+        }
+      }
+    }
+    const anomalyWatchdog = new SensorAnomalyWatchdog();
 
     // =========================================================================
     // 7. REAL-TIME WI-FI & LOCAL SERVER TELEMETRY ENGINE (0% SIM, AUTO-RECONNECT)
@@ -1868,6 +2324,7 @@
         }
       }
       renderDisconnectedState(statusLine, actionLine) {
+        anomalyWatchdog.notifyConnectionLost();
         this.setConnectionUI(statusLine, 'bg-amber-400 text-amber-400');
         document.getElementById('sensorDiagBanner').classList.add('hidden');
         document.getElementById('valOpFS').textContent = '--';
@@ -1891,6 +2348,7 @@
         this.stopAll(); this.mode = 'IDLE';
         lastProcessedRow = null;
         geoSolver.resetZero();
+        anomalyWatchdog.reset();
         const bw = document.getElementById('btnConnectWifi');
         if (bw) bw.textContent = 'Conectar Wi-Fi';
         this.renderDisconnectedState(
@@ -1920,20 +2378,11 @@
     }
 
     stream.onSample = (fsr, ir, soil, ax, ay, az) => {
-      const diagBanner = document.getElementById('sensorDiagBanner');
-      const issues = [];
-      if (ax === 0 && ay === 0 && Math.abs(az) < 20) issues.push('ADXL345 sin respuesta I2C (revisar GPIO21/22 y CS a 3.3V)');
-      if (soil <= 15) issues.push(`Sonda Humedad en corto a GND (ADC=${soil})`);
-      if (fsr >= 4090) issues.push(`Sensor FSR saturado/en corto (ADC=${fsr})`);
-      if (issues.length > 0) {
-        diagBanner.classList.remove('hidden');
-        diagBanner.innerHTML = '<strong>Anomalía física detectada en sensores:</strong><br>' + issues.map(i => `• ${i}`).join('<br>');
-      } else {
-        diagBanner.classList.add('hidden');
-      }
-
       const ch = geoSolver.processChannels(fsr, ir, soil, ax, ay, az);
       const res = geoSolver.computeFactorOfSafety(ch.force, ch.dispMm, ch.hum, ch.tiltDeg, ch.vibG);
+
+      // Ejecutar motor inteligente de anomalías, fallos de sensor, picos y correlación multi-sensor
+      anomalyWatchdog.evaluate(fsr, ir, soil, ax, ay, az, ch, res);
 
       document.getElementById('valOpFS').textContent = res.fs.toFixed(2);
       document.getElementById('valFS').textContent = res.fs.toFixed(2);
@@ -2121,12 +2570,18 @@
 
     function calibrateSensorsZero() {
       geoSolver.calibrateZero();
+      anomalyWatchdog.reset();
       if (stream.mode === 'SERVER') {
         fetch(`${stream.localBase || ''}/api/control`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tare: true })
         }).catch(() => {});
       }
+      pushToast({
+        severity: 'INFO', sensor: 'Calibración',
+        title: 'Sensores Tarados a Cero',
+        detail: 'Referencia de reposo fijada (0.00 N · 0.0 mm · 0.00°).'
+      });
       addEventLog('Sensores tarados a cero', 'Posición actual fijada como referencia base (0.0 mm / 0.00°)', 'INFO');
     }
 
@@ -2138,6 +2593,7 @@
     function autoDetectLocalServer(manual) { return stream.autoDetectLocalServer(manual); }
 
     window.addEventListener('DOMContentLoaded', () => {
+      syncNotifButtonUI();
       // Conectar a telemetría PRIMERO (antes de compilar WebGL) para latencia cero
       stream.autoDetectLocalServer(false).then(ok => { if (!ok) stream.startIdle(); });
       twin3D.init();
