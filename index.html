@@ -669,6 +669,9 @@
         this.H = 3.2;
         this.beta_deg = 40.0;
         this.hasBaseline = false;
+        this.tareSamples = 0;
+        this.sumFsr = 0; this.sumIr = 0; this.sumAx = 0; this.sumAy = 0; this.sumAz = 0;
+        this.emaFsr = null;
         this.baseFsr = 65;
         this.baseIr = 4095;
         this.baseAx = 0; this.baseAy = 0; this.baseAz = 256;
@@ -678,7 +681,8 @@
       }
       calibrateZero() {
         this.hasBaseline = true;
-        this.baseFsr = this.lastRaw.fsr;
+        this.tareSamples = 10;
+        this.baseFsr = this.emaFsr !== null ? this.emaFsr : this.lastRaw.fsr;
         this.baseIr = this.lastRaw.ir;
         this.baseAx = this.lastRaw.ax;
         this.baseAy = this.lastRaw.ay;
@@ -687,10 +691,15 @@
       }
       resetZero() {
         this.hasBaseline = false;
+        this.tareSamples = 0;
+        this.sumFsr = 0; this.sumIr = 0; this.sumAx = 0; this.sumAy = 0; this.sumAz = 0;
+        this.emaFsr = null;
         this.vibPeak = 0;
       }
       setSimBaseline() {
         this.hasBaseline = true;
+        this.tareSamples = 10;
+        this.emaFsr = 65;
         this.baseFsr = 65;
         this.baseIr = 4095;
         this.baseAx = 1; this.baseAy = 0; this.baseAz = 256;
@@ -699,16 +708,23 @@
       }
       processChannels(rawFsr, rawIr, rawSoil, accX, accY, accZ) {
         this.lastRaw = { fsr: rawFsr, ir: rawIr, ax: accX, ay: accY, az: accZ };
+        this.emaFsr = this.emaFsr === null ? rawFsr : (this.emaFsr * 0.80 + rawFsr * 0.20);
+
         if (!this.hasBaseline) {
-          this.baseFsr = rawFsr;
-          this.baseIr = rawIr;
-          this.baseAx = accX; this.baseAy = accY; this.baseAz = accZ;
+          this.sumFsr += rawFsr; this.sumIr += rawIr;
+          this.sumAx += accX; this.sumAy += accY; this.sumAz += accZ;
+          this.tareSamples++;
+          this.baseFsr = this.sumFsr / this.tareSamples;
+          this.baseIr = this.sumIr / this.tareSamples;
+          this.baseAx = this.sumAx / this.tareSamples;
+          this.baseAy = this.sumAy / this.tareSamples;
+          this.baseAz = this.sumAz / this.tareSamples;
           this.prevAx = accX; this.prevAy = accY; this.prevAz = accZ;
-          this.hasBaseline = true;
+          if (this.tareSamples >= 10) this.hasBaseline = true;
         }
 
-        const deltaFsr = Math.max(0, Math.abs(rawFsr - this.baseFsr) - 24);
-        const force = Math.min(4.4, deltaFsr * 0.020);
+        const deltaFsr = Math.max(0, Math.abs(this.emaFsr - this.baseFsr) - 55);
+        const force = Math.min(4.4, deltaFsr * 0.022);
 
         const deltaIr = Math.max(0, Math.abs(rawIr - this.baseIr) - 25);
         const dispMm = Math.min(50.0, deltaIr * 0.035);
