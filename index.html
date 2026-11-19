@@ -668,31 +668,70 @@
         this.gamma = 18.5;
         this.H = 3.2;
         this.beta_deg = 40.0;
-        this.zeroDispMm = 0.0;
-        this.zeroTiltDeg = 0.0;
-        this.lastRawDispMm = 0.0;
-        this.lastRawTiltDeg = 0.0;
+        this.hasBaseline = false;
+        this.baseFsr = 65;
+        this.baseIr = 4095;
+        this.baseAx = 0; this.baseAy = 0; this.baseAz = 256;
+        this.prevAx = 0; this.prevAy = 0; this.prevAz = 256;
+        this.vibPeak = 0;
+        this.lastRaw = { fsr: 65, ir: 4095, ax: 0, ay: 0, az: 256 };
       }
       calibrateZero() {
-        this.zeroDispMm = this.lastRawDispMm;
-        this.zeroTiltDeg = this.lastRawTiltDeg;
+        this.hasBaseline = true;
+        this.baseFsr = this.lastRaw.fsr;
+        this.baseIr = this.lastRaw.ir;
+        this.baseAx = this.lastRaw.ax;
+        this.baseAy = this.lastRaw.ay;
+        this.baseAz = this.lastRaw.az;
+        this.vibPeak = 0;
       }
       resetZero() {
-        this.zeroDispMm = 0.0;
-        this.zeroTiltDeg = 0.0;
+        this.hasBaseline = false;
+        this.vibPeak = 0;
+      }
+      setSimBaseline() {
+        this.hasBaseline = true;
+        this.baseFsr = 65;
+        this.baseIr = 4095;
+        this.baseAx = 1; this.baseAy = 0; this.baseAz = 256;
+        this.prevAx = 1; this.prevAy = 0; this.prevAz = 256;
+        this.vibPeak = 0;
       }
       processChannels(rawFsr, rawIr, rawSoil, accX, accY, accZ) {
-        const force = rawFsr > 65 ? Math.min(4.4, (rawFsr - 65) * 0.01467) : 0.0;
-        const distCm = Math.max(0.2, 5.0 - (rawIr / 4095.0) * 4.6);
-        const rawDispMm = Math.max(0.0, (5.0 - distCm) * 10.0);
-        const hum = Math.max(5.0, Math.min(100.0, ((3800.0 - rawSoil) / 2600.0) * 100.0));
-        const azSafe = Math.max(1.0, Math.abs(accZ));
-        const rawTiltDeg = Math.atan2(Math.hypot(accX, accY), azSafe) * (180.0 / Math.PI);
-        this.lastRawDispMm = rawDispMm;
-        this.lastRawTiltDeg = rawTiltDeg;
-        const dispMm = Math.abs(rawDispMm - this.zeroDispMm);
-        const tiltDeg = Math.abs(rawTiltDeg - this.zeroTiltDeg);
-        const vibG = Math.abs((Math.hypot(accX, accY, accZ) / 256.0) - 1.0);
+        this.lastRaw = { fsr: rawFsr, ir: rawIr, ax: accX, ay: accY, az: accZ };
+        if (!this.hasBaseline) {
+          this.baseFsr = rawFsr;
+          this.baseIr = rawIr;
+          this.baseAx = accX; this.baseAy = accY; this.baseAz = accZ;
+          this.prevAx = accX; this.prevAy = accY; this.prevAz = accZ;
+          this.hasBaseline = true;
+        }
+
+        const deltaFsr = Math.max(0, Math.abs(rawFsr - this.baseFsr) - 24);
+        const force = Math.min(4.4, deltaFsr * 0.020);
+
+        const deltaIr = Math.max(0, Math.abs(rawIr - this.baseIr) - 25);
+        const dispMm = Math.min(50.0, deltaIr * 0.035);
+
+        const hum = Math.max(8.0, Math.min(100.0, 8.0 + ((4085.0 - rawSoil) / 2200.0) * 92.0));
+
+        // Exact 3D vector angle from tared mounting orientation (works at any tilt angle)
+        const magNow = Math.hypot(accX, accY, accZ);
+        const magBase = Math.hypot(this.baseAx, this.baseAy, this.baseAz);
+        let rawAngle = 0.0;
+        if (magNow > 10 && magBase > 10) {
+          const dot = accX * this.baseAx + accY * this.baseAy + accZ * this.baseAz;
+          const cosT = Math.max(-1.0, Math.min(1.0, dot / (magNow * magBase)));
+          rawAngle = Math.acos(cosT) * (180.0 / Math.PI);
+        }
+        const tiltDeg = rawAngle > 0.35 ? (rawAngle - 0.35) * 1.8 : 0.0;
+
+        // High-pass 3D delta acceleration with brief peak-hold for finger taps / seismic shock
+        const stepG = Math.hypot(accX - this.prevAx, accY - this.prevAy, accZ - this.prevAz) / 256.0;
+        this.prevAx = accX; this.prevAy = accY; this.prevAz = accZ;
+        this.vibPeak = Math.max(stepG, this.vibPeak * 0.82);
+        const vibG = this.vibPeak > 0.025 ? (this.vibPeak - 0.025) * 2.5 : 0.0;
+
         return { force, dispMm, hum, tiltDeg, vibG };
       }
       computeFactorOfSafety(force, dispMm, hum, tiltDeg, vibG) {
@@ -1308,6 +1347,7 @@
       }
       startIdle() {
         this.stopAll(); this.mode = 'IDLE';
+        geoSolver.resetZero();
         this.setConnectionUI('Esperando Sensores Reales (USB / Wi-Fi)', 'bg-amber-400 text-amber-400');
         document.getElementById('btnConnectUSB').textContent = 'Conectar USB';
         document.getElementById('btnHeaderUSB').innerHTML = '<i class="fa-brands fa-usb text-xs"></i><span>Conectar USB</span>';
@@ -1335,6 +1375,7 @@
       }
       startSim() {
         this.stopAll(); this.mode = 'SIM';
+        geoSolver.setSimBaseline();
         this.setConnectionUI('Modo Prueba (Sin Sensores)', 'bg-sky-400 text-sky-400');
         document.getElementById('btnConnectUSB').textContent = 'Conectar USB';
         document.getElementById('btnHeaderUSB').innerHTML = '<i class="fa-brands fa-usb text-xs"></i><span>Conectar USB</span>';
@@ -1346,14 +1387,14 @@
         this.simTimer = setInterval(() => {
           t += 0.06;
           const r = this.rainLevel / 100.0;
-          let fsr = 78 + r * 220 + Math.sin(t) * 3;
-          let ir = 120 + r * 1800 + Math.cos(t) * 8;
-          let soil = 3250 - r * 2050;
+          let fsr = 65 + r * 220 + Math.sin(t) * 3;
+          let ir = 4095 - r * 1800 - Math.cos(t) * 8;
+          let soil = 4095 - r * 2200;
           let ax = Math.round(1 + r * 35), ay = Math.round(r * 14), az = 256;
           if (this.simScenario === 'seismic') {
             fsr = 350 + Math.sin(t * 7) * 35;
-            ir = 2800 + Math.cos(t * 5) * 180;
-            soil = 1250;
+            ir = 1200 + Math.cos(t * 5) * 180;
+            soil = 1850;
             ax = Math.round(Math.sin(t * 14) * 55);
             ay = Math.round(Math.cos(t * 12) * 35);
             az = 256 + Math.round(Math.sin(t * 18) * 45);
@@ -1379,7 +1420,6 @@
         if (ax === 0 && ay === 0 && Math.abs(az) < 20) issues.push('ADXL345 sin respuesta I2C (revisar GPIO21/22 y CS a 3.3V)');
         if (soil <= 15) issues.push(`Sonda Humedad en corto a GND (ADC=${soil})`);
         if (fsr >= 4090) issues.push(`Sensor FSR saturado/en corto (ADC=${fsr})`);
-        if (ir >= 4090) issues.push(`Sensor IR fuera de rango (ADC=${ir})`);
         if (issues.length > 0) {
           diagBanner.classList.remove('hidden');
           diagBanner.innerHTML = '<strong>Anomalía física detectada en sensores:</strong><br>' + issues.map(i => `• ${i}`).join('<br>');
@@ -1559,9 +1599,9 @@
     function toggleDemoSim() {
       audioEngine.init();
       if (stream.mode === 'SIM') {
+        geoSolver.resetZero();
         stream.autoDetectLocalServer(false).then(ok => { if (!ok) stream.startIdle(); });
       } else {
-        geoSolver.resetZero();
         stream.startSim();
       }
     }
