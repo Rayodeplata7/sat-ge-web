@@ -15,8 +15,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Raleway:wght@600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
   <style>
@@ -219,18 +217,18 @@
           <i class="fa-solid fa-database mr-1.5 text-xs"></i>Datos y Ensayos
         </button>
         <button onclick="switchTab('analysis')" id="tabBtn-analysis" class="seg-btn">
-          <i class="fa-solid fa-chart-line mr-1.5 text-xs"></i>Mapas y Señales
+          <i class="fa-solid fa-wave-square mr-1.5 text-xs"></i>Señales en Vivo
         </button>
         <button onclick="switchTab('connect')" id="tabBtn-connect" class="seg-btn">
-          <i class="fa-solid fa-plug mr-1.5 text-xs"></i>Conectar y Descargas
+          <i class="fa-solid fa-wifi mr-1.5 text-xs"></i>Wi-Fi y Descargas
         </button>
       </nav>
 
       <!-- Action Pills -->
       <div class="flex items-center gap-2 order-2 lg:order-3">
-        <button id="btnHeaderUSB" onclick="toggleSerialConnection()" class="pill-btn pill-primary" title="Conectar ESP32 por cable USB">
-          <i class="fa-brands fa-usb text-xs"></i>
-          <span>Conectar USB</span>
+        <button id="btnHeaderWifi" onclick="switchTab('connect')" class="pill-btn pill-primary" title="Conexión Wi-Fi y Descarga APK">
+          <i class="fa-solid fa-wifi text-xs"></i>
+          <span>Wi-Fi ESP32</span>
         </button>
         <button id="btnMute" onclick="toggleAudioAlarm()" class="pill-btn pill-ghost" title="Activar o silenciar voz y alarma">
           <i class="fa-solid fa-volume-high text-xs"></i>
@@ -266,7 +264,7 @@
                 Sin Lectura de Sensores
               </h1>
               <p id="txtOperatorAction" class="text-sm text-[var(--text-muted)] leading-relaxed">
-                Conecta tu módulo ESP32 por USB o Wi-Fi para visualizar mediciones reales del talud.
+                Conectando automáticamente con tus 4 sensores reales del ESP32 (Wi-Fi / Servidor Local).
               </p>
             </div>
           </div>
@@ -304,29 +302,30 @@
             </div>
           </div>
 
-          <!-- Hardware-First Controls + Optional Test Simulator -->
+          <!-- Estado Ultra-Sensible de los 4 Sensores Reales (0% Simulación) -->
           <div class="p-4 bg-[var(--surface-2)] border border-[var(--border)] space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
-              <span class="text-xs font-semibold">Fuente de Datos</span>
-              <div class="flex items-center gap-2">
-                <button id="btnZeroCal" onclick="calibrateSensorsZero()" class="pill-btn pill-ghost py-1 px-3 text-[11px]" title="Fija la posición y luz actual como cero de referencia">
-                  <i class="fa-solid fa-crosshairs text-emerald-400"></i> Tarar Cero
-                </button>
-                <button id="btnToggleSimMode" onclick="toggleDemoSim()" class="pill-btn pill-ghost py-1 px-3 text-[11px]">
-                  <i class="fa-solid fa-flask text-sky-400"></i> Modo Prueba: OFF
-                </button>
-              </div>
+              <span class="text-xs font-semibold">4 Sensores Reales en Vivo</span>
+              <button id="btnZeroCal" onclick="calibrateSensorsZero()" class="pill-btn pill-ghost py-1 px-3 text-[11px]" title="Fija la posición actual de la maqueta como cero de referencia">
+                <i class="fa-solid fa-crosshairs text-emerald-400"></i> Tarar Cero
+              </button>
             </div>
-            <div id="simControlsBox" class="hidden space-y-2 pt-2 border-t border-[var(--border)]">
-              <div class="flex items-center justify-between text-xs">
-                <span class="text-[var(--text-muted)]">Prueba manual sin sensores</span>
-                <span id="lblRainIntensity" class="font-num text-[var(--text-muted)]">0% Lluvia</span>
+            <div class="grid grid-cols-2 gap-2 text-[11px] font-num">
+              <div id="pillS1" class="px-2.5 py-1.5 border border-[var(--border)] bg-black/30 flex items-center justify-between">
+                <span class="text-[var(--text-muted)] font-sans">S1 FSR</span>
+                <span id="lblS1Live">--</span>
               </div>
-              <input id="sliderRain" type="range" min="0" max="100" value="0" class="sat-slider" oninput="onRainSlider(this.value)">
-              <div class="flex flex-wrap gap-2 pt-1">
-                <button onclick="setQuickScenario('normal')" class="pill-btn pill-ghost py-1 px-3 text-xs">Normal</button>
-                <button onclick="setQuickScenario('rain')" class="pill-btn pill-ghost py-1 px-3 text-xs">Lluvia</button>
-                <button onclick="setQuickScenario('seismic')" class="pill-btn pill-ghost py-1 px-3 text-xs">Sismo</button>
+              <div id="pillS2" class="px-2.5 py-1.5 border border-[var(--border)] bg-black/30 flex items-center justify-between">
+                <span class="text-[var(--text-muted)] font-sans">S2 IR</span>
+                <span id="lblS2Live">--</span>
+              </div>
+              <div id="pillS3" class="px-2.5 py-1.5 border border-[var(--border)] bg-black/30 flex items-center justify-between">
+                <span class="text-[var(--text-muted)] font-sans">S3 Hum</span>
+                <span id="lblS3Live">--</span>
+              </div>
+              <div id="pillS4" class="px-2.5 py-1.5 border border-[var(--border)] bg-black/30 flex items-center justify-between">
+                <span class="text-[var(--text-muted)] font-sans">S4 ADXL</span>
+                <span id="lblS4Live">--</span>
               </div>
             </div>
           </div>
@@ -352,14 +351,20 @@
           <div class="relative flex-1 min-h-[360px] sm:min-h-[430px] bg-[#05070B]">
             <div id="threeContainer" class="w-full h-full"></div>
 
-            <!-- Clean Floating Legend -->
-            <div class="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-              <div class="px-3 py-1.5 bg-black/65 backdrop-blur-md text-[11px] text-slate-200 flex items-center gap-3">
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-sky-400"></span> Nivel de agua</span>
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-slate-300"></span> Muro</span>
-                <span class="flex items-center gap-1.5"><span id="twinBeaconDot" class="w-2 h-2 rounded-full bg-emerald-400"></span> Baliza</span>
+            <!-- Clean Floating Legend & Live Sensor Reaction HUD -->
+            <div class="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+              <div id="twinLiveReact" class="px-3 py-1.5 bg-black/75 backdrop-blur-md border border-white/15 text-[11px] font-num text-emerald-400">
+                4 Sensores en Espera...
               </div>
-              <div class="px-3 py-1.5 bg-black/65 backdrop-blur-md text-[11px] text-slate-300">
+            </div>
+            <div class="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+              <div class="px-3 py-1.5 bg-black/70 backdrop-blur-md text-[11px] text-slate-200 flex flex-wrap items-center gap-3">
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> FSR Empuje</span>
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-cyan-400"></span> IR Grieta</span>
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-sky-400"></span> Humedad</span>
+                <span class="flex items-center gap-1.5"><span id="twinBeaconDot" class="w-2 h-2 rounded-full bg-amber-400"></span> ADXL345</span>
+              </div>
+              <div class="px-3 py-1.5 bg-black/70 backdrop-blur-md text-[11px] text-slate-300">
                 Arrastra para rotar · Rueda para zoom
               </div>
             </div>
@@ -443,56 +448,91 @@
 
     </section>
 
-    <!-- ==================== TAB 2: MAPAS Y SEÑALES ==================== -->
+    <!-- ==================== TAB 3: SEÑALES EN VIVO (4 SENSORES REALES) ==================== -->
     <section id="tab-analysis" class="tab-content hidden space-y-6">
 
-      <div class="glass-card p-5 space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 class="text-base font-bold">Comportamiento de Sensores en el Tiempo</h2>
-            <p class="text-xs text-[var(--text-muted)]">Curva continua de humedad, empuje, grieta e inclinación</p>
-          </div>
-          <div class="flex flex-wrap items-center gap-4 text-xs">
-            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Empuje (N)</span>
-            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-white border border-slate-500"></span> Grieta (mm)</span>
-            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span> Humedad (%)</span>
-            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Inclinación (°)</span>
-            <button id="btnToggleDSO" onclick="toggleOscilloscopeMode()" class="pill-btn pill-ghost py-1.5 px-3 text-xs">
-              Vista: Tiempo Real
-            </button>
-          </div>
+      <div class="glass-card p-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-bold">Osciloscopios en Vivo — 4 Sensores Físicos (100% Real)</h2>
+          <p class="text-xs text-[var(--text-muted)]">Cada gráfica auto-escala en tiempo real para que cualquier micro-cambio en un sensor sea visible al instante</p>
         </div>
-        <div class="relative w-full h-72 bg-[#070A10] border border-[var(--border)] overflow-hidden">
-          <canvas id="scopeCanvas" class="w-full h-full block"></canvas>
-          <div class="absolute top-2.5 left-3 text-[11px] font-num !text-slate-300 pointer-events-none">
-            Muestras: <span id="lblSampleCount" class="text-amber-400 font-bold">0</span>
-          </div>
+        <div class="text-xs font-num text-[var(--text-muted)]">
+          Muestras recibidas: <span id="lblSampleCount" class="text-emerald-400 font-bold">0</span>
         </div>
       </div>
 
+      <!-- 4 OSCILOSCOPIOS DEDICADOS (1 POR SENSOR REAL) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Sensor 1: FSR-406 -->
         <div class="glass-card p-5 space-y-3">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-2">
             <div>
-              <h2 class="text-base font-bold">Mapa de Ubicación</h2>
-              <p class="text-xs text-[var(--text-muted)]">Sector K4+800 · Cordillera Oriental</p>
+              <h3 class="text-sm font-bold flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Sensor 1 · FSR-406 (Empuje Lateral)</h3>
+              <p class="text-xs text-[var(--text-muted)]">GPIO34 · Fuerza en Newtons y señal ADC cruda (0–4095)</p>
             </div>
-            <span class="text-xs font-semibold text-emerald-400">Punto Activo</span>
+            <span id="liveFsrBadge" class="text-xs font-num px-2.5 py-1 bg-[var(--surface-2)] border border-[var(--border)] text-emerald-400">--</span>
           </div>
-          <div id="mapGIS" class="w-full h-72 border border-[var(--border)] bg-[#070A10]"></div>
+          <div class="w-full h-52 bg-[#070A10] border border-[var(--border)] overflow-hidden">
+            <canvas id="chartFsr" class="w-full h-full block"></canvas>
+          </div>
         </div>
 
+        <!-- Sensor 2: IR P/N 1102 -->
         <div class="glass-card p-5 space-y-3">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-2">
             <div>
-              <h2 class="text-base font-bold">Análisis de Esfuerzo del Suelo</h2>
-              <p class="text-xs text-[var(--text-muted)]">Modelo geotécnico Mohr-Coulomb en tiempo real</p>
+              <h3 class="text-sm font-bold flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span> Sensor 2 · IR P/N 1102 (Grieta Coronal)</h3>
+              <p class="text-xs text-[var(--text-muted)]">GPIO35 · Apertura en milímetros y señal ADC cruda</p>
             </div>
-            <span class="text-xs font-num text-[var(--text-muted)]">c' 24 kPa · φ' 32°</span>
+            <span id="liveIrBadge" class="text-xs font-num px-2.5 py-1 bg-[var(--surface-2)] border border-[var(--border)] text-cyan-400">--</span>
           </div>
-          <div class="w-full h-72 border border-[var(--border)] bg-[#070A10] relative">
-            <canvas id="mohrCanvas" class="w-full h-full block"></canvas>
+          <div class="w-full h-52 bg-[#070A10] border border-[var(--border)] overflow-hidden">
+            <canvas id="chartIr" class="w-full h-full block"></canvas>
           </div>
+        </div>
+
+        <!-- Sensor 3: Humedad Suelo -->
+        <div class="glass-card p-5 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <h3 class="text-sm font-bold flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span> Sensor 3 · Sonda Humedad Suelo</h3>
+              <p class="text-xs text-[var(--text-muted)]">GPIO32 · Saturación de agua (%) y conductividad ADC</p>
+            </div>
+            <span id="liveSoilBadge" class="text-xs font-num px-2.5 py-1 bg-[var(--surface-2)] border border-[var(--border)] text-sky-400">--</span>
+          </div>
+          <div class="w-full h-52 bg-[#070A10] border border-[var(--border)] overflow-hidden">
+            <canvas id="chartSoil" class="w-full h-full block"></canvas>
+          </div>
+        </div>
+
+        <!-- Sensor 4: ADXL345 -->
+        <div class="glass-card p-5 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <h3 class="text-sm font-bold flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Sensor 4 · ADXL345 (Inclinación & Vibración)</h3>
+              <p class="text-xs text-[var(--text-muted)]">I2C 0x53 · Ángulo 3D (°), vibración (g) y ejes X,Y,Z</p>
+            </div>
+            <span id="liveAdxlBadge" class="text-xs font-num px-2.5 py-1 bg-[var(--surface-2)] border border-[var(--border)] text-amber-400">--</span>
+          </div>
+          <div class="w-full h-52 bg-[#070A10] border border-[var(--border)] overflow-hidden">
+            <canvas id="chartAdxl" class="w-full h-full block"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modelo Mohr-Coulomb en Vivo -->
+      <div class="glass-card p-5 space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-bold">Envolvente Geotécnica Mohr-Coulomb en Tiempo Real</h2>
+            <p class="text-xs text-[var(--text-muted)]">Calculada en vivo desde los 4 sensores reales (esfuerzo efectivo σ' vs resistencia cortante τ)</p>
+          </div>
+          <span class="text-xs font-num text-[var(--text-muted)]">c' 24 kPa · φ' 32°</span>
+        </div>
+        <div class="w-full h-64 border border-[var(--border)] bg-[#070A10] relative">
+          <canvas id="mohrCanvas" class="w-full h-full block"></canvas>
         </div>
       </div>
 
@@ -611,25 +651,10 @@
 
     </section>
 
-    <!-- ==================== TAB 3: CONECTAR Y DESCARGAS ==================== -->
+    <!-- ==================== TAB 4: WI-FI, REPORTES Y DESCARGAS ==================== -->
     <section id="tab-connect" class="tab-content hidden space-y-6">
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="glass-card glass-card-interactive p-6 flex flex-col justify-between space-y-4">
-          <div class="space-y-2">
-            <div class="w-10 h-10 bg-[var(--surface-2)] border border-[var(--border)] flex items-center justify-center">
-              <i class="fa-brands fa-usb text-base"></i>
-            </div>
-            <h3 class="text-lg font-bold">Conectar por Cable USB</h3>
-            <p class="text-sm text-[var(--text-muted)] leading-relaxed">
-              Conecta la estación ESP32 a tu computador usando Chrome o Edge para recibir los datos reales al instante.
-            </p>
-          </div>
-          <button id="btnConnectUSB" onclick="toggleSerialConnection()" class="pill-btn pill-primary w-full justify-center">
-            Conectar USB
-          </button>
-        </div>
-
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div class="glass-card glass-card-interactive p-6 flex flex-col justify-between space-y-4">
           <div class="space-y-2">
             <div class="w-10 h-10 bg-[var(--surface-2)] border border-[var(--border)] flex items-center justify-center">
@@ -637,13 +662,18 @@
             </div>
             <h3 class="text-lg font-bold">Conectar por Wi-Fi</h3>
             <p class="text-sm text-[var(--text-muted)] leading-relaxed">
-              Únete a la red Wi-Fi del equipo (<strong>HELIOS-9-MISSION-CONTROL</strong>) y presiona conectar.
+              Únete a la red Wi-Fi del ESP32 (<strong>HELIOS-9-MISSION-CONTROL</strong> · clave <code>piraquive2026</code>) y presiona conectar, o reconecta con el servidor local.
             </p>
             <input id="inputWifiIp" type="text" value="192.168.4.1" class="w-full px-3 py-2 text-sm font-num bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text)] focus:outline-none focus:border-[var(--text)]" placeholder="192.168.4.1">
           </div>
-          <button id="btnConnectWifi" onclick="toggleWifiConnection()" class="pill-btn pill-ghost w-full justify-center">
-            Conectar Wi-Fi
-          </button>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <button id="btnConnectWifi" onclick="toggleWifiConnection()" class="pill-btn pill-primary flex-1 justify-center">
+              Conectar Wi-Fi
+            </button>
+            <button onclick="autoDetectLocalServer(true)" class="pill-btn pill-ghost flex-1 justify-center">
+              Reconectar Servidor Local
+            </button>
+          </div>
         </div>
 
         <div class="glass-card glass-card-interactive p-6 flex flex-col justify-between space-y-4">
@@ -651,14 +681,15 @@
             <div class="w-10 h-10 bg-[var(--surface-2)] border border-[var(--border)] flex items-center justify-center">
               <i class="fa-solid fa-mobile-screen text-base"></i>
             </div>
-            <h3 class="text-lg font-bold">App Android y Servidor</h3>
+            <h3 class="text-lg font-bold">App Android Nativa (.apk)</h3>
             <p class="text-sm text-[var(--text-muted)] leading-relaxed">
-              Descarga e instala la aplicación nativa Android (.apk) en tu celular, o enlaza con el servidor local.
+              Instala la app en tu celular: conexión Wi-Fi directa al ESP32, Gemelo Digital 3D ultra-reactivo, osciloscopio de 4 sensores y exportación CSV a Excel/WhatsApp.
             </p>
           </div>
           <div class="flex flex-col gap-2">
-            <a href="sat-geo-alerta.apk" download class="pill-btn pill-primary w-full justify-center">Descargar App Android (.apk)</a>
-            <button onclick="autoDetectLocalServer(true)" class="pill-btn pill-ghost w-full justify-center">Buscar Servidor Local</button>
+            <a href="sat-geo-alerta.apk" download class="pill-btn pill-primary w-full justify-center">
+              <i class="fa-brands fa-android text-sm"></i> Descargar App Android (.apk)
+            </a>
           </div>
         </div>
       </div>
@@ -667,41 +698,42 @@
 
       <div class="glass-card p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h3 class="text-base font-bold">Descargar Reportes de Medición</h3>
-          <p class="text-xs text-[var(--text-muted)]">Exporta las mediciones capturadas en tu sesión para informes</p>
+          <h3 class="text-base font-bold">Reportes de Medición Real (4 Sensores)</h3>
+          <p class="text-xs text-[var(--text-muted)]">Descarga las mediciones reales recolectadas en sesión o la base SQLite completa</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button onclick="exportData('csv')" class="pill-btn pill-ghost">Excel / CSV</button>
-          <button onclick="exportData('json')" class="pill-btn pill-ghost">JSON</button>
+          <button onclick="exportData('csv')" class="pill-btn pill-primary">Excel / CSV</button>
           <button onclick="exportData('matlab')" class="pill-btn pill-ghost">MATLAB (.m)</button>
+          <button onclick="exportData('json')" class="pill-btn pill-ghost">JSON</button>
+          <a href="/api/export.csv" download class="pill-btn pill-ghost">Base SQLite (.csv)</a>
         </div>
       </div>
 
       <div class="glass-card p-6 space-y-4">
         <div>
-          <h3 class="text-base font-bold">Documentación y Aplicaciones del Proyecto</h3>
-          <p class="text-xs text-[var(--text-muted)]">Material técnico y código listo para descargar</p>
+          <h3 class="text-base font-bold">Documentación y Archivos del Proyecto</h3>
+          <p class="text-xs text-[var(--text-muted)]">Informe técnico, aplicación móvil y código fuente de ingeniería</p>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <a href="documentacion/MEMORIA_TECNICA_DEFINITIVA_SISTEMAS_DIGITALES.pdf" download class="glass-card glass-card-interactive p-4 flex flex-col gap-1">
             <span class="text-sm font-bold">Memoria Técnica (PDF)</span>
             <span class="text-xs text-[var(--text-muted)]">Informe de ingeniería</span>
           </a>
           <a href="sat-geo-alerta.apk" download class="glass-card glass-card-interactive p-4 flex flex-col gap-1">
-            <span class="text-sm font-bold">App Android Instalable (.apk)</span>
-            <span class="text-xs text-[var(--text-muted)]">Instalación directa en celular (5.6 MB)</span>
+            <span class="text-sm font-bold">App Android (.apk)</span>
+            <span class="text-xs text-[var(--text-muted)]">Instalación directa (5.8 MB)</span>
           </a>
           <a href="sat_geo_android_app_kotlin.zip" download class="glass-card glass-card-interactive p-4 flex flex-col gap-1">
-            <span class="text-sm font-bold">Código Fuente Android (Kotlin)</span>
-            <span class="text-xs text-[var(--text-muted)]">Proyecto completo Android Studio</span>
+            <span class="text-sm font-bold">Código Android (Kotlin)</span>
+            <span class="text-xs text-[var(--text-muted)]">Proyecto Android Studio</span>
           </a>
           <a href="firmware/firmware_esp32_helios/firmware_esp32_helios.ino" download class="glass-card glass-card-interactive p-4 flex flex-col gap-1">
             <span class="text-sm font-bold">Firmware ESP32 (.ino)</span>
-            <span class="text-xs text-[var(--text-muted)]">Código del módulo de campo</span>
+            <span class="text-xs text-[var(--text-muted)]">Módulo Wi-Fi + 4 sensores</span>
           </a>
           <a href="matlab/proyecto_muestreo_sensores.m" download class="glass-card glass-card-interactive p-4 flex flex-col gap-1">
             <span class="text-sm font-bold">Script MATLAB (.m)</span>
-            <span class="text-xs text-[var(--text-muted)]">Análisis de 6 canales</span>
+            <span class="text-xs text-[var(--text-muted)]">Análisis 4 sensores</span>
           </a>
         </div>
       </div>
@@ -786,89 +818,93 @@
         this.beta_deg = 40.0;
         this.hasBaseline = false;
         this.tareSamples = 0;
-        this.sumFsr = 0; this.sumIr = 0; this.sumAx = 0; this.sumAy = 0; this.sumAz = 0;
-        this.emaFsr = null;
-        this.baseFsr = 65;
-        this.baseIr = 4095;
+        this.sumFsr = 0; this.sumIr = 0; this.sumSoil = 0;
+        this.sumAx = 0; this.sumAy = 0; this.sumAz = 0;
+        this.emaFsr = null; this.emaIr = null; this.emaSoil = null;
+        this.emaAx = null; this.emaAy = null; this.emaAz = null;
+        this.baseFsr = 65; this.baseIr = 4095; this.baseSoil = 4095;
         this.baseAx = 0; this.baseAy = 0; this.baseAz = 256;
         this.prevAx = 0; this.prevAy = 0; this.prevAz = 256;
         this.vibPeak = 0;
-        this.lastRaw = { fsr: 65, ir: 4095, ax: 0, ay: 0, az: 256 };
+        this.lastRaw = { fsr: 65, ir: 4095, soil: 4095, ax: 0, ay: 0, az: 256 };
       }
       calibrateZero() {
         this.hasBaseline = true;
-        this.tareSamples = 10;
+        this.tareSamples = 6;
         this.baseFsr = this.emaFsr !== null ? this.emaFsr : this.lastRaw.fsr;
-        this.baseIr = this.lastRaw.ir;
-        this.baseAx = this.lastRaw.ax;
-        this.baseAy = this.lastRaw.ay;
-        this.baseAz = this.lastRaw.az;
+        this.baseIr = this.emaIr !== null ? this.emaIr : this.lastRaw.ir;
+        this.baseSoil = this.emaSoil !== null ? this.emaSoil : this.lastRaw.soil;
+        this.baseAx = this.emaAx !== null ? this.emaAx : this.lastRaw.ax;
+        this.baseAy = this.emaAy !== null ? this.emaAy : this.lastRaw.ay;
+        this.baseAz = this.emaAz !== null ? this.emaAz : this.lastRaw.az;
         this.vibPeak = 0;
       }
       resetZero() {
         this.hasBaseline = false;
         this.tareSamples = 0;
-        this.sumFsr = 0; this.sumIr = 0; this.sumAx = 0; this.sumAy = 0; this.sumAz = 0;
-        this.emaFsr = null;
-        this.vibPeak = 0;
-      }
-      setSimBaseline() {
-        this.hasBaseline = true;
-        this.tareSamples = 10;
-        this.emaFsr = 65;
-        this.baseFsr = 65;
-        this.baseIr = 4095;
-        this.baseAx = 1; this.baseAy = 0; this.baseAz = 256;
-        this.prevAx = 1; this.prevAy = 0; this.prevAz = 256;
+        this.sumFsr = 0; this.sumIr = 0; this.sumSoil = 0;
+        this.sumAx = 0; this.sumAy = 0; this.sumAz = 0;
+        this.emaFsr = null; this.emaIr = null; this.emaSoil = null;
+        this.emaAx = null; this.emaAy = null; this.emaAz = null;
         this.vibPeak = 0;
       }
       processChannels(rawFsr, rawIr, rawSoil, accX, accY, accZ) {
-        this.lastRaw = { fsr: rawFsr, ir: rawIr, ax: accX, ay: accY, az: accZ };
-        this.emaFsr = this.emaFsr === null ? rawFsr : (this.emaFsr * 0.80 + rawFsr * 0.20);
+        this.lastRaw = { fsr: rawFsr, ir: rawIr, soil: rawSoil, ax: accX, ay: accY, az: accZ };
+        this.emaFsr = this.emaFsr === null ? rawFsr : (this.emaFsr * 0.65 + rawFsr * 0.35);
+        this.emaIr = this.emaIr === null ? rawIr : (this.emaIr * 0.50 + rawIr * 0.50);
+        this.emaSoil = this.emaSoil === null ? rawSoil : (this.emaSoil * 0.50 + rawSoil * 0.50);
+        this.emaAx = this.emaAx === null ? accX : (this.emaAx * 0.50 + accX * 0.50);
+        this.emaAy = this.emaAy === null ? accY : (this.emaAy * 0.50 + accY * 0.50);
+        this.emaAz = this.emaAz === null ? accZ : (this.emaAz * 0.50 + accZ * 0.50);
 
         if (!this.hasBaseline) {
-          this.sumFsr += rawFsr; this.sumIr += rawIr;
-          this.sumAx += accX; this.sumAy += accY; this.sumAz += accZ;
+          this.sumFsr += this.emaFsr; this.sumIr += this.emaIr; this.sumSoil += this.emaSoil;
+          this.sumAx += this.emaAx; this.sumAy += this.emaAy; this.sumAz += this.emaAz;
           this.tareSamples++;
           this.baseFsr = this.sumFsr / this.tareSamples;
           this.baseIr = this.sumIr / this.tareSamples;
+          this.baseSoil = this.sumSoil / this.tareSamples;
           this.baseAx = this.sumAx / this.tareSamples;
           this.baseAy = this.sumAy / this.tareSamples;
           this.baseAz = this.sumAz / this.tareSamples;
           this.prevAx = accX; this.prevAy = accY; this.prevAz = accZ;
-          if (this.tareSamples >= 10) this.hasBaseline = true;
+          if (this.tareSamples >= 6) this.hasBaseline = true;
         }
 
-        const deltaFsr = Math.max(0, Math.abs(this.emaFsr - this.baseFsr) - 55);
-        const force = Math.min(4.4, deltaFsr * 0.022);
+        // 1) FSR-406: ultra-sensible (banda muerta 14 ADC, justo sobre ruido de reposo)
+        const deltaFsr = Math.max(0, Math.abs(this.emaFsr - this.baseFsr) - 14);
+        const force = Math.min(5.0, deltaFsr * 0.032);
 
-        const deltaIr = Math.max(0, Math.abs(rawIr - this.baseIr) - 25);
-        const dispMm = Math.min(50.0, deltaIr * 0.035);
+        // 2) IR P/N 1102: ultra-sensible (ruido reposo = 0, banda muerta 4 ADC)
+        const deltaIr = Math.max(0, Math.abs(this.emaIr - this.baseIr) - 4);
+        const dispMm = Math.min(50.0, deltaIr * 0.065);
 
-        const hum = Math.max(8.0, Math.min(100.0, 8.0 + ((4085.0 - rawSoil) / 2200.0) * 92.0));
+        // 3) Sonda Humedad Suelo: ultra-sensible a la mínima gota o tacto húmedo
+        const absHum = 8.0 + ((4092.0 - this.emaSoil) / 1500.0) * 92.0;
+        const relHum = 8.0 + ((this.baseSoil - this.emaSoil) / 1100.0) * 92.0;
+        const hum = Math.max(8.0, Math.min(100.0, Math.max(absHum, relHum)));
 
-        // Exact 3D vector angle from tared mounting orientation (works at any tilt angle)
-        const magNow = Math.hypot(accX, accY, accZ);
+        // 4) ADXL345: ángulo 3D ultra-sensible (0.22° banda muerta, ganancia 2.4x) + micro-vibración (0.014g)
+        const magNow = Math.hypot(this.emaAx, this.emaAy, this.emaAz);
         const magBase = Math.hypot(this.baseAx, this.baseAy, this.baseAz);
         let rawAngle = 0.0;
         if (magNow > 10 && magBase > 10) {
-          const dot = accX * this.baseAx + accY * this.baseAy + accZ * this.baseAz;
+          const dot = this.emaAx * this.baseAx + this.emaAy * this.baseAy + this.emaAz * this.baseAz;
           const cosT = Math.max(-1.0, Math.min(1.0, dot / (magNow * magBase)));
           rawAngle = Math.acos(cosT) * (180.0 / Math.PI);
         }
-        const tiltDeg = rawAngle > 0.35 ? (rawAngle - 0.35) * 1.8 : 0.0;
+        const tiltDeg = rawAngle > 0.22 ? Math.min(45.0, (rawAngle - 0.22) * 2.4) : 0.0;
 
-        // High-pass 3D delta acceleration with brief peak-hold for finger taps / seismic shock
         const stepG = Math.hypot(accX - this.prevAx, accY - this.prevAy, accZ - this.prevAz) / 256.0;
         this.prevAx = accX; this.prevAy = accY; this.prevAz = accZ;
         this.vibPeak = Math.max(stepG, this.vibPeak * 0.82);
-        const vibG = this.vibPeak > 0.025 ? (this.vibPeak - 0.025) * 2.5 : 0.0;
+        const vibG = this.vibPeak > 0.014 ? (this.vibPeak - 0.014) * 4.0 : 0.0;
 
         return { force, dispMm, hum, tiltDeg, vibG };
       }
       computeFactorOfSafety(force, dispMm, hum, tiltDeg, vibG) {
-        const satFactor = Math.max(0, (hum - 15.0) / 85.0);
-        const u_kpa = satFactor * 16.5;
+        const satFactor = Math.max(0, (hum - 12.0) / 88.0);
+        const u_kpa = satFactor * 20.0;
         const beta = this.beta_deg * Math.PI / 180.0;
         const phi = this.phi_deg * Math.PI / 180.0;
 
@@ -877,7 +913,7 @@
         const shearRes = this.c_kpa + sigma_eff * Math.tan(phi);
 
         const drivingBase = this.gamma * this.H * Math.sin(beta) * Math.cos(beta);
-        const extForce = force * 1.45 + dispMm * 0.18 + tiltDeg * 0.25 + vibG * 14.0;
+        const extForce = force * 2.1 + dispMm * 0.28 + tiltDeg * 0.40 + vibG * 18.0;
         const fs = Math.max(0.45, Math.min(2.60, shearRes / Math.max(1.0, drivingBase + extForce)));
 
         let alertLevel = 'STABLE';
@@ -942,20 +978,26 @@
     const sparkDisp = new MiniSparkline('sparkDisp', '#94A3B8', 40);
 
     // =========================================================================
-    // 4. SIGNAL CHART & MOHR-COULOMB (TAB 2)
+    // 4. 4 DEDICATED LIVE REAL-TIME SENSOR OSCILLOSCOPES + MOHR-COULOMB (TAB 3)
     // =========================================================================
-    class SignalChart {
-      constructor(canvasId) {
+    class LiveSensorChart {
+      constructor(canvasId, color, unit, minSpan = 10, secondaryColor = null) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
-        this.maxPts = 360;
-        this.bufF = []; this.bufD = []; this.bufH = []; this.bufT = [];
-        this.showSpectrum = false;
+        this.color = color;
+        this.secondaryColor = secondaryColor;
+        this.unit = unit;
+        this.minSpan = minSpan;
+        this.maxPts = 160;
+        this.data = [];
+        this.data2 = [];
       }
-      push(f, d, h, t) {
-        this.bufF.push(f); this.bufD.push(d); this.bufH.push(h); this.bufT.push(t);
-        if (this.bufF.length > this.maxPts) {
-          this.bufF.shift(); this.bufD.shift(); this.bufH.shift(); this.bufT.shift();
+      push(v, v2 = null) {
+        this.data.push(v);
+        if (this.data.length > this.maxPts) this.data.shift();
+        if (v2 !== null) {
+          this.data2.push(v2);
+          if (this.data2.length > this.maxPts) this.data2.shift();
         }
       }
       resize() {
@@ -963,48 +1005,101 @@
         const r = this.canvas.parentElement.getBoundingClientRect();
         if (r.width > 0 && r.height > 0) { this.canvas.width = r.width; this.canvas.height = r.height; }
       }
-      toggleMode() {
-        this.showSpectrum = !this.showSpectrum;
-        return this.showSpectrum ? 'Vista: Espectro' : 'Vista: Tiempo Real';
-      }
       render() {
         if (!this.ctx || !this.canvas || this.canvas.width <= 0) return;
         const { width: w, height: h } = this.canvas;
         const ctx = this.ctx;
         ctx.fillStyle = '#070A10';
         ctx.fillRect(0, 0, w, h);
+
+        // Clean technical grid
         ctx.strokeStyle = 'rgba(255,255,255,0.06)';
         ctx.lineWidth = 1;
-        for (let x = 0; x < w; x += w / 10) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-        for (let y = 0; y < h; y += h / 6) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+        for (let i = 1; i < 8; i++) {
+          const x = (i / 8) * w;
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        }
+        for (let i = 1; i < 4; i++) {
+          const y = (i / 4) * h;
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        }
 
-        if (this.showSpectrum) {
-          const bars = 36, bw = w / bars;
-          for (let i = 0; i < bars; i++) {
-            const v = Math.abs(Math.sin(i * 0.4 + this.bufF.length * 0.1)) * (0.2 + (this.bufF[this.bufF.length - 1] || 0) * 0.18);
-            const bh = Math.min(h - 20, v * h * 0.7);
-            ctx.fillStyle = i < 12 ? '#10B981' : '#F59E0B';
-            ctx.fillRect(i * bw + 2, h - bh, bw - 4, bh);
-          }
+        if (this.data.length < 2) {
+          ctx.fillStyle = '#64748B';
+          ctx.font = '12px JetBrains Mono, monospace';
+          ctx.fillText('Esperando señal real del sensor...', 14, h / 2);
           return;
         }
-        const trace = (arr, maxV, col) => {
-          if (arr.length < 2) return;
-          ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath();
-          for (let i = 0; i < arr.length; i++) {
-            const x = (i / (this.maxPts - 1)) * w;
-            const y = h - 14 - Math.min(1, Math.max(0, arr[i] / maxV)) * (h - 28);
+
+        // Dynamic auto-scaling Y axis so ANY micro-change is super clear!
+        let lo = Math.min(...this.data);
+        let hi = Math.max(...this.data);
+        if (hi - lo < this.minSpan) {
+          const mid = (hi + lo) / 2;
+          lo = mid - this.minSpan / 2;
+          hi = mid + this.minSpan / 2;
+        } else {
+          const pad = (hi - lo) * 0.14;
+          lo -= pad; hi += pad;
+        }
+
+        const padL = 52, padR = 12, padT = 16, padB = 18;
+        const plotW = w - padL - padR;
+        const plotH = h - padT - padB;
+
+        // Y-axis scale labels
+        ctx.fillStyle = '#94A3B8';
+        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.fillText(`${hi.toFixed(1)}`, 6, padT + 4);
+        ctx.fillText(`${((hi + lo) / 2).toFixed(1)}`, 6, padT + plotH / 2 + 4);
+        ctx.fillText(`${lo.toFixed(1)}`, 6, h - padB + 4);
+
+        // Primary trace + soft fill
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        let lastX = padL, lastY = padT + plotH;
+        for (let i = 0; i < this.data.length; i++) {
+          const x = padL + (i / (this.maxPts - 1)) * plotW;
+          const norm = (this.data[i] - lo) / (hi - lo);
+          const y = padT + (1 - norm) * plotH;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          lastX = x; lastY = y;
+        }
+        ctx.stroke();
+
+        ctx.lineTo(lastX, padT + plotH);
+        ctx.lineTo(padL, padT + plotH);
+        ctx.closePath();
+        ctx.fillStyle = this.color + '1A';
+        ctx.fill();
+
+        // Live endpoint pulse dot
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(lastX, lastY, 3.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Optional secondary trace (e.g., ADXL345 vibration g)
+        if (this.secondaryColor && this.data2.length >= 2) {
+          ctx.strokeStyle = this.secondaryColor;
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          for (let i = 0; i < this.data2.length; i++) {
+            const x = padL + (i / (this.maxPts - 1)) * plotW;
+            const norm = Math.min(1, Math.max(0, this.data2[i] / 0.40));
+            const y = padT + (1 - norm) * plotH;
             if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
           }
           ctx.stroke();
-        };
-        trace(this.bufH, 100, '#38BDF8');
-        trace(this.bufD, 50, '#FFFFFF');
-        trace(this.bufT, 25, '#10B981');
-        trace(this.bufF, 4.5, '#F59E0B');
+        }
       }
     }
-    const signalChart = new SignalChart('scopeCanvas');
+    const chartFsr = new LiveSensorChart('chartFsr', '#10B981', 'ADC', 40);
+    const chartIr = new LiveSensorChart('chartIr', '#00F0FF', 'ADC', 40);
+    const chartSoil = new LiveSensorChart('chartSoil', '#38BDF8', 'ADC', 40);
+    const chartAdxl = new LiveSensorChart('chartAdxl', '#F59E0B', '°', 2.0, '#F43F5E');
+    const allSensorCharts = [chartFsr, chartIr, chartSoil, chartAdxl];
 
     class MohrCoulombVisualizer {
       constructor(canvasId) {
@@ -1042,7 +1137,7 @@
     const mohrChart = new MohrCoulombVisualizer('mohrCanvas');
 
     // =========================================================================
-    // 5. INTERACTIVE 3D DIGITAL TWIN WITH DYNAMIC RAIN PARTICLES & BUTTRESSES
+    // 5. ULTRA-REACTIVE 3D DIGITAL TWIN (4 SENSORS LIVE PHYSICS AT 60 FPS)
     // =========================================================================
     class GeotechnicalTwin3D {
       constructor(containerId) {
@@ -1054,13 +1149,24 @@
         this.autoOrbit = true;
         this.dragging = false;
         this.lastX = 0; this.lastY = 0;
-        this.rainIntensity = 0;
         this.pulsePhase = 0;
+        // Target & smooth interpolated 4-sensor state
+        this.tgt = { tilt: 0, disp: 0, hum: 8, force: 0, vib: 0, level: 'STABLE' };
+        this.cur = { tilt: 0, disp: 0, hum: 8, force: 0, vib: 0 };
+        this.drySoilColor = null;
+        this.wetSoilColor = null;
+        this.baseWallColor = null;
+        this.stressWallColor = null;
       }
       init() {
         if (this.initialized || !this.container || typeof THREE === 'undefined') return;
         const w = this.container.clientWidth || 640;
         const h = this.container.clientHeight || 400;
+
+        this.drySoilColor = new THREE.Color(0x6b4f3a);
+        this.wetSoilColor = new THREE.Color(0x231912);
+        this.baseWallColor = new THREE.Color(0xcbd5e1);
+        this.stressWallColor = new THREE.Color(0xf87171);
 
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x070a12);
@@ -1074,16 +1180,18 @@
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.container.appendChild(this.renderer.domElement);
 
-        // Studio + Outdoor Hemisphere Lighting
-        this.scene.add(new THREE.HemisphereLight(0x93c5fd, 0x1e293b, 0.75));
-        const sun = new THREE.DirectionalLight(0xfff7ed, 1.15);
+        this.scene.add(new THREE.HemisphereLight(0x93c5fd, 0x1e293b, 0.78));
+        const sun = new THREE.DirectionalLight(0xfff7ed, 1.18);
         sun.position.set(8, 14, 9);
         sun.castShadow = true;
         sun.shadow.mapSize.width = 1024;
         sun.shadow.mapSize.height = 1024;
         this.scene.add(sun);
 
-        // Ground plinth
+        // Master diorama group (shakes in real-time on ADXL345 micro-vibrations!)
+        this.dioramaGroup = new THREE.Group();
+        this.scene.add(this.dioramaGroup);
+
         const ground = new THREE.Mesh(
           new THREE.PlaneGeometry(36, 36),
           new THREE.MeshStandardMaterial({ color: 0x0b0f19, roughness: 0.95 })
@@ -1097,7 +1205,6 @@
         grid.position.y = -1.99;
         this.scene.add(grid);
 
-        // 1. Sculpted Geological Strata (Bedrock + Clay + Vegetated Topsoil)
         const depth = 6.2;
         const makeStratum = (pts, color, rough) => {
           const shape = new THREE.Shape();
@@ -1106,25 +1213,25 @@
           shape.closePath();
           const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2 });
           geo.translate(0, 0, -depth / 2);
-          const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: rough }));
+          const mat = new THREE.MeshStandardMaterial({ color, roughness: rough });
+          const mesh = new THREE.Mesh(geo, mat);
           mesh.castShadow = true; mesh.receiveShadow = true;
-          return mesh;
+          return { mesh, mat };
         };
 
-        // Bedrock base
-        this.scene.add(makeStratum([[-5.2, -2.0], [3.6, -2.0], [3.6, -1.2], [-5.2, -1.2]], 0x262b36, 0.92));
-        // Soil hillside cross-section
-        this.scene.add(makeStratum([[-5.2, -1.2], [1.4, -1.2], [1.4, 1.4], [-0.4, 2.0], [-2.5, 2.45], [-5.2, 2.5]], 0x5c4636, 0.9));
-        // Vegetated top crust
-        this.scene.add(makeStratum([[-5.2, 2.42], [-2.5, 2.38], [-0.4, 1.92], [1.4, 1.34], [1.4, 1.56], [-0.4, 2.16], [-2.5, 2.62], [-5.2, 2.65]], 0x2d5a3f, 0.85));
+        this.dioramaGroup.add(makeStratum([[-5.2, -2.0], [3.6, -2.0], [3.6, -1.2], [-5.2, -1.2]], 0x262b36, 0.92).mesh);
+        const soilObj = makeStratum([[-5.2, -1.2], [1.4, -1.2], [1.4, 1.4], [-0.4, 2.0], [-2.5, 2.45], [-5.2, 2.5]], 0x6b4f3a, 0.9);
+        this.soilMat = soilObj.mat;
+        this.dioramaGroup.add(soilObj.mesh);
+        this.dioramaGroup.add(makeStratum([[-5.2, 2.42], [-2.5, 2.38], [-0.4, 1.92], [1.4, 1.34], [1.4, 1.56], [-0.4, 2.16], [-2.5, 2.62], [-5.2, 2.65]], 0x2d5a3f, 0.85).mesh);
 
-        // 2. Volumetric Water Table inside the hill
-        this.waterMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.42, roughness: 0.2 });
+        // Sensor 3 (HUMEDAD): Volumetric Water Table inside hill
+        this.waterMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, emissive: 0x0369a1, emissiveIntensity: 0.25, transparent: true, opacity: 0.45, roughness: 0.2 });
         this.waterMesh = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.35, depth - 0.1), this.waterMat);
         this.waterMesh.position.set(-1.9, -0.95, 0);
-        this.scene.add(this.waterMesh);
+        this.dioramaGroup.add(this.waterMesh);
 
-        // 3. Sculpted Trees & Guardrail on Crest
+        // Sculpted Trees
         const addTree = (x, y, z, s) => {
           const g = new THREE.Group();
           const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * s, 0.12 * s, 0.55 * s, 7), new THREE.MeshStandardMaterial({ color: 0x4a3525 }));
@@ -1134,14 +1241,28 @@
           const c2 = new THREE.Mesh(new THREE.ConeGeometry(0.32 * s, 0.75 * s, 8), new THREE.MeshStandardMaterial({ color: 0x2a6646, roughness: 0.8 }));
           c2.position.y = 1.35 * s; c2.castShadow = true; g.add(c2);
           g.position.set(x, y, z);
-          this.scene.add(g);
+          this.dioramaGroup.add(g);
         };
         addTree(-4.2, 2.62, -1.8, 1.05);
         addTree(-3.4, 2.58, 1.9, 0.9);
         addTree(-2.1, 2.48, -2.1, 0.85);
         addTree(-4.4, 2.62, 0.6, 1.15);
 
-        // 4. Reinforced Concrete Retaining Wall + Buttresses + Weep Drains + IoT Mast
+        // Sensor 1 (FSR-406): 3 Glowing 3D Force Stress Arrows pushing against the wall
+        this.forceArrows = [];
+        this.forceArrowMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.0 });
+        [-1.8, 0, 1.8].forEach(zPos => {
+          const ag = new THREE.Group();
+          const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 8), this.forceArrowMat);
+          shaft.rotation.z = Math.PI / 2; shaft.position.x = -0.55; ag.add(shaft);
+          const head = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.42, 10), this.forceArrowMat);
+          head.rotation.z = -Math.PI / 2; head.position.x = 0.12; ag.add(head);
+          ag.position.set(1.25, 0.35, zPos);
+          this.dioramaGroup.add(ag);
+          this.forceArrows.push(ag);
+        });
+
+        // Retaining Wall Group + Buttresses + Weep Drains + Crack + IoT Mast
         this.wallGroup = new THREE.Group();
         this.wallGroup.position.set(1.65, -1.2, 0);
 
@@ -1151,11 +1272,11 @@
         wallShape.closePath();
         const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 2 });
         wallGeo.translate(0, 0, -depth / 2);
-        const wallMesh = new THREE.Mesh(wallGeo, new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.52 }));
+        this.wallMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.52 });
+        const wallMesh = new THREE.Mesh(wallGeo, this.wallMat);
         wallMesh.castShadow = true; wallMesh.receiveShadow = true;
         this.wallGroup.add(wallMesh);
 
-        // 4 Concrete Buttresses
         [-2.2, -0.75, 0.75, 2.2].forEach(zPos => {
           const bShape = new THREE.Shape();
           bShape.moveTo(0.25, 0.35); bShape.lineTo(1.05, 0.35); bShape.lineTo(0.25, 2.55); bShape.closePath();
@@ -1166,7 +1287,6 @@
           this.wallGroup.add(bMesh);
         });
 
-        // Weep Drainage Pipes
         this.drainMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.2 });
         [-1.5, 0, 1.5].forEach(zPos => {
           const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.45, 10), this.drainMat);
@@ -1175,13 +1295,13 @@
           this.wallGroup.add(pipe);
         });
 
-        // Tension Crack glowing seam
-        this.crackMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.0 });
-        this.crackMesh = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, depth - 0.3), this.crackMat);
-        this.crackMesh.position.set(-0.32, 2.95, 0);
+        // Sensor 2 (IR P/N 1102): Dynamic glowing opening Tension Crack
+        this.crackMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.0 });
+        this.crackMesh = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, depth - 0.25), this.crackMat);
+        this.crackMesh.position.set(-0.32, 2.96, 0);
         this.wallGroup.add(this.crackMesh);
 
-        // IoT Solar Station + Status Beacon on top of wall
+        // IoT Solar Station + Status Beacon + ADXL345 Seismic Shockwave Ring
         const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 1.35, 10), new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.6 }));
         mast.position.set(0, 3.7, 0);
         this.wallGroup.add(mast);
@@ -1195,15 +1315,34 @@
         beacon.position.set(0, 4.45, 0);
         this.wallGroup.add(beacon);
 
-        this.haloMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.28, side: THREE.DoubleSide });
-        this.haloRing = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.42, 24), this.haloMat);
+        this.haloMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.30, side: THREE.DoubleSide });
+        this.haloRing = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.44, 24), this.haloMat);
         this.haloRing.position.set(0, 4.45, 0);
         this.haloRing.rotation.x = Math.PI / 2;
         this.wallGroup.add(this.haloRing);
 
-        this.scene.add(this.wallGroup);
+        this.shockMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e, transparent: true, opacity: 0.0, side: THREE.DoubleSide });
+        this.shockRing = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.72, 32), this.shockMat);
+        this.shockRing.position.set(0, 3.2, 0);
+        this.shockRing.rotation.x = Math.PI / 2;
+        this.wallGroup.add(this.shockRing);
 
-        // 5. 3D Rain Particles
+        // 4 Physical Glowing Sensor Node Markers mounted on the Talud
+        const makeNode = (hex, x, y, z, parent) => {
+          const mat = new THREE.MeshBasicMaterial({ color: hex });
+          const m = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 14), mat);
+          m.position.set(x, y, z);
+          parent.add(m);
+          return m;
+        };
+        this.nodeFsr  = makeNode(0x10b981, -0.32, 1.35,  2.65, this.wallGroup); // Behind retaining wall
+        this.nodeIr   = makeNode(0x00f0ff, -0.32, 3.06, -1.60, this.wallGroup); // Crown fissure IR
+        this.nodeSoil = makeNode(0x38bdf8, -1.20, 0.65,  3.16, this.dioramaGroup); // Embedded soil fork
+        this.nodeAdxl = makeNode(0xf59e0b,  0.10, 3.12,  1.60, this.wallGroup); // ADXL345 on wall crest
+
+        this.dioramaGroup.add(this.wallGroup);
+
+        // 3D Rain Particles (activates from >14% soil moisture)
         const rainCount = 320;
         const rainGeo = new THREE.BufferGeometry();
         const rainPos = new Float32Array(rainCount * 3);
@@ -1216,6 +1355,20 @@
         this.rainMat = new THREE.PointsMaterial({ color: 0x38bdf8, size: 0.11, transparent: true, opacity: 0 });
         this.rainPoints = new THREE.Points(rainGeo, this.rainMat);
         this.scene.add(this.rainPoints);
+
+        // 3D Soil Micro-Debris Particles spilling when IR crack opens
+        const debCount = 65;
+        const debGeo = new THREE.BufferGeometry();
+        const debPos = new Float32Array(debCount * 3);
+        for (let i = 0; i < debCount; i++) {
+          debPos[i * 3] = 1.35 + (Math.random() - 0.5) * 0.4;
+          debPos[i * 3 + 1] = 1.65 - Math.random() * 2.5;
+          debPos[i * 3 + 2] = (Math.random() - 0.5) * 5.4;
+        }
+        debGeo.setAttribute('position', new THREE.BufferAttribute(debPos, 3));
+        this.debrisMat = new THREE.PointsMaterial({ color: 0xf59e0b, size: 0.14, transparent: true, opacity: 0 });
+        this.debrisPoints = new THREE.Points(debGeo, this.debrisMat);
+        this.dioramaGroup.add(this.debrisPoints);
 
         const dom = this.renderer.domElement;
         dom.addEventListener('pointerdown', e => { this.dragging = true; this.autoOrbit = false; this.lastX = e.clientX; this.lastY = e.clientY; });
@@ -1246,16 +1399,9 @@
           this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.renderer.setSize(w, h);
         }
       }
-      updatePhysics(tiltDeg, dispMm, hum, alertLevel) {
+      updatePhysics(tiltDeg, dispMm, hum, alertLevel, force = 0, vibG = 0) {
         if (!this.initialized) return;
-        this.wallGroup.rotation.z = -(tiltDeg * Math.PI / 180) * 1.6;
-        this.wallGroup.position.x = 1.65 + (dispMm * 0.018);
-        this.waterMesh.position.y = -1.0 + (hum / 100.0) * 1.95;
-        this.waterMesh.scale.y = 0.5 + (hum / 100.0) * 3.5;
-        this.drainMat.emissiveIntensity = hum > 45 ? 0.9 : 0.15;
-        this.rainIntensity = Math.max(0, (hum - 30) / 70);
-        this.rainMat.opacity = this.rainIntensity > 0.1 ? Math.min(0.85, this.rainIntensity) : 0;
-        this.crackMat.opacity = Math.min(1, dispMm / 10);
+        this.tgt = { tilt: tiltDeg, disp: dispMm, hum, force, vib: vibG, level: alertLevel };
         const col = alertLevel === 'CRITICAL' ? 0xef4444 : (alertLevel === 'WARNING' ? 0xf59e0b : 0x10b981);
         this.beaconMat.color.setHex(col);
         this.haloMat.color.setHex(col);
@@ -1263,12 +1409,60 @@
       animate() {
         requestAnimationFrame(() => this.animate());
         if (!this.initialized) return;
-        if (this.autoOrbit && !this.dragging) this.rotY += 0.0022;
-        this.pulsePhase += 0.05;
-        if (this.haloRing) {
-          const s = 1 + Math.sin(this.pulsePhase) * 0.22;
-          this.haloRing.scale.set(s, s, 1);
+        if (this.autoOrbit && !this.dragging) this.rotY += 0.0020;
+        this.pulsePhase += 0.08;
+
+        // Smooth fast interpolation so even micro-changes animate fluidly at 60 fps
+        this.cur.tilt  += (this.tgt.tilt  - this.cur.tilt)  * 0.26;
+        this.cur.disp  += (this.tgt.disp  - this.cur.disp)  * 0.26;
+        this.cur.hum   += (this.tgt.hum   - this.cur.hum)   * 0.20;
+        this.cur.force += (this.tgt.force - this.cur.force) * 0.28;
+        this.cur.vib   += (this.tgt.vib   - this.cur.vib)   * 0.32;
+
+        const { tilt, disp, hum, force, vib } = this.cur;
+
+        // 1) Retaining Wall ultra-reactive tilt + push + slide
+        const visualTiltRad = Math.min(0.55, Math.sqrt(Math.max(0, tilt)) * 0.14 + (tilt * Math.PI / 180) * 1.8 + force * 0.028);
+        const visualSlide = Math.min(1.05, Math.sqrt(Math.max(0, disp)) * 0.16 + force * 0.06);
+        this.wallGroup.rotation.z = -visualTiltRad;
+        this.wallGroup.position.x = 1.65 + visualSlide;
+        this.wallMat.color.copy(this.baseWallColor).lerp(this.stressWallColor, Math.min(0.65, force / 2.2));
+
+        // 2) FSR Force Pressure Arrows (appear at even 0.02 N!)
+        if (force > 0.02) {
+          this.forceArrowMat.opacity = Math.min(0.95, 0.35 + force * 0.45);
+          this.forceArrowMat.color.setHex(force > 1.8 ? 0xef4444 : (force > 0.5 ? 0xf59e0b : 0x10b981));
+          const sx = 0.55 + Math.min(1.4, force * 0.45) + Math.sin(this.pulsePhase * 2.5) * 0.08;
+          this.forceArrows.forEach(a => { a.scale.set(sx, 1, 1); a.position.x = 1.15 + visualSlide * 0.6; });
+        } else {
+          this.forceArrowMat.opacity = 0;
         }
+
+        // 3) IR Tension Crack + Falling Debris (activates at 0.05 mm!)
+        if (disp > 0.05) {
+          this.crackMat.opacity = Math.min(1.0, 0.35 + Math.sqrt(disp) * 0.28);
+          this.crackMat.color.setHex(disp > 6.0 ? 0xef4444 : 0x00f0ff);
+          this.crackMesh.scale.x = 1.0 + Math.min(4.5, Math.sqrt(disp) * 1.1);
+          this.debrisMat.opacity = Math.min(0.9, 0.25 + disp * 0.08);
+          const dp = this.debrisPoints.geometry.attributes.position.array;
+          for (let i = 1; i < dp.length; i += 3) {
+            dp[i] -= 0.06 + Math.min(0.15, disp * 0.01);
+            if (dp[i] < -1.1) dp[i] = 1.75;
+          }
+          this.debrisPoints.geometry.attributes.position.needsUpdate = true;
+        } else {
+          this.crackMat.opacity = 0;
+          this.debrisMat.opacity = 0;
+        }
+
+        // 4) Soil Moisture Darkening + Water Table + Rain (starts at >14%)
+        const wetK = Math.max(0, Math.min(1, (hum - 8) / 92));
+        this.soilMat.color.copy(this.drySoilColor).lerp(this.wetSoilColor, wetK);
+        this.waterMesh.position.y = -1.02 + (hum / 100.0) * 2.05 + Math.sin(this.pulsePhase) * 0.025;
+        this.waterMesh.scale.y = 0.5 + (hum / 100.0) * 3.8;
+        this.waterMat.opacity = 0.32 + wetK * 0.45;
+        this.drainMat.emissiveIntensity = hum > 18 ? (0.4 + wetK * 1.1) : 0.12;
+        this.rainMat.opacity = hum > 14 ? Math.min(0.85, (hum - 12) / 60) : 0;
         if (this.rainPoints && this.rainMat.opacity > 0) {
           const pos = this.rainPoints.geometry.attributes.position.array;
           for (let i = 1; i < pos.length; i += 3) {
@@ -1277,10 +1471,36 @@
           }
           this.rainPoints.geometry.attributes.position.needsUpdate = true;
         }
+
+        // 5) ADXL345 Micro-Seismic Tremor Shake + Expanding Shockwave Ring (activates at 0.01g!)
+        if (vib > 0.01) {
+          const amp = Math.min(0.28, vib * 0.45);
+          this.dioramaGroup.position.x = Math.sin(this.pulsePhase * 7.5) * amp;
+          this.dioramaGroup.position.y = Math.cos(this.pulsePhase * 9.0) * amp * 0.5;
+          const rScale = 1.0 + ((this.pulsePhase * 1.4) % 4.5);
+          this.shockRing.scale.set(rScale, rScale, 1);
+          this.shockMat.opacity = Math.max(0, 0.85 - (rScale / 5.5) * 0.85);
+        } else {
+          this.dioramaGroup.position.x *= 0.8;
+          this.dioramaGroup.position.y *= 0.8;
+          this.shockMat.opacity = 0;
+        }
+
+        // 6) Pulse individual 3D Sensor Node Beacons when each sensor moves
+        const pBeat = 1.0 + Math.sin(this.pulsePhase * 2.5) * 0.25;
+        this.nodeFsr.scale.setScalar(force > 0.02 ? 1.75 * pBeat : 0.85);
+        this.nodeIr.scale.setScalar(disp > 0.05 ? 1.75 * pBeat : 0.85);
+        this.nodeSoil.scale.setScalar(hum > 14 ? 1.75 * pBeat : 0.85);
+        this.nodeAdxl.scale.setScalar((tilt > 0.15 || vib > 0.01) ? 1.75 * pBeat : 0.85);
+
+        if (this.haloRing) {
+          const s = 1 + Math.sin(this.pulsePhase) * 0.24;
+          this.haloRing.scale.set(s, s, 1);
+        }
         this.camera.position.x = Math.sin(this.rotY) * Math.cos(this.rotX) * this.zoom;
         this.camera.position.y = 0.6 + Math.sin(this.rotX) * this.zoom;
         this.camera.position.z = Math.cos(this.rotY) * Math.cos(this.rotX) * this.zoom;
-        this.camera.lookAt(-0.8, 0.5, 0);
+        this.camera.lookAt(-0.6, 0.5, 0);
         this.renderer.render(this.scene, this.camera);
       }
     }
@@ -1463,14 +1683,13 @@
         addEventLog('Sin señal activa', 'Conecta los sensores reales para capturar una muestra', 'INFO');
         return;
       }
-      const tag = stream.mode === 'SIM' ? `SIM_${flightRecorder.momento}` : flightRecorder.momento;
       flightRecorder.push({
         ...lastProcessedRow,
-        momento: tag,
+        momento: flightRecorder.momento,
         ts: new Date().toISOString(),
         timeStr: new Date().toLocaleTimeString('es-CO', { hour12: false })
       }, true);
-      addEventLog('Muestra puntual guardada', `${tag} · FS ${lastProcessedRow.fs.toFixed(2)}`, 'INFO');
+      addEventLog('Muestra puntual guardada', `${flightRecorder.momento} · FS ${lastProcessedRow.fs.toFixed(2)}`, 'INFO');
     }
 
     function clearRecordedData() {
@@ -1513,169 +1732,122 @@
     }
 
     // =========================================================================
-    // 7. MULTI-SOURCE TELEMETRY ENGINE
+    // 7. REAL-TIME WI-FI & LOCAL SERVER TELEMETRY ENGINE (0% SIM, AUTO-RECONNECT)
     // =========================================================================
     class TelemetryStreamEngine {
       constructor() {
-        this.mode = 'SIM';
-        this.simScenario = 'normal';
-        this.rainLevel = 0; // 0..100 interactive slider
+        this.mode = 'IDLE';
         this.sampleCount = 0;
-        this.serialPort = null; this.serialReader = null;
-        this.pollTimer = null; this.simTimer = null;
+        this.pollTimer = null;
+        this.reconnectTimer = null;
+        this.localBase = '';
         this.onSample = null;
       }
       setConnectionUI(text, colorClass) {
-        document.getElementById('txtConnectionStatus').textContent = text;
-        document.getElementById('statusDot').className = `w-2 h-2 rounded-full ${colorClass} pulse-ring inline-block`;
+        const txt = document.getElementById('txtConnectionStatus');
+        const dot = document.getElementById('statusDot');
+        if (txt) txt.textContent = text;
+        if (dot) dot.className = `w-2 h-2 rounded-full ${colorClass} pulse-ring inline-block`;
       }
       stopAll() {
         if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
-        if (this.simTimer) { clearInterval(this.simTimer); this.simTimer = null; }
-        if (this.serialReader) { try { this.serialReader.cancel(); } catch {} this.serialReader = null; }
-        if (this.serialPort) { try { this.serialPort.close(); } catch {} this.serialPort = null; }
+        if (this.reconnectTimer) { clearInterval(this.reconnectTimer); this.reconnectTimer = null; }
       }
       async autoDetectLocalServer(manual = false) {
         if (location.protocol === 'https:') {
-          if (manual) showConnectFeedback('Desde HTTPS usa "Conectar USB" o abre el servidor local en http://localhost:5000.', 'warn');
+          if (manual) showConnectFeedback('Desde HTTPS el navegador bloquea HTTP local. Abre en http://localhost:5000 o usa la App Android por Wi-Fi.', 'warn');
           return false;
         }
-        const base = (location.port === '5000' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1')) ? '' : 'http://localhost:5000';
+        const base = (location.port === '5000') ? '' : 'http://localhost:5000';
         try {
-          const res = await fetch(`${base}/api/telemetry`, { signal: AbortSignal.timeout(1000) });
+          const res = await fetch(`${base}/api/telemetry`, { cache: 'no-store', signal: AbortSignal.timeout(2500) });
           if (res.ok) {
             this.localBase = base;
             this.startServerIngress();
-            if (manual) showConnectFeedback('Conectado al servidor local.', 'ok');
+            if (manual) showConnectFeedback('Conectado al servidor local en tiempo real.', 'ok');
             return true;
           }
         } catch {}
-        if (manual) showConnectFeedback('No se encontró servidor local en localhost:5000.', 'warn');
+        if (manual) showConnectFeedback('No respondió el servidor local (http://localhost:5000). Reintentando automáticamente...', 'warn');
         return false;
       }
       startServerIngress() {
         this.stopAll(); this.mode = 'SERVER';
         const base = this.localBase || '';
         let inFlight = false;
-        let failCount = 0;
         this.setConnectionUI('Servidor Local · Esperando ESP32', 'bg-amber-400 text-amber-400');
         fetch(`${base}/api/control`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ momento: flightRecorder.momento })
         }).catch(() => {});
+
+        // Polling resiliente (180ms): NUNCA muere permanentemente si el servidor se reinicia 2 segundos
         this.pollTimer = setInterval(async () => {
           if (inFlight) return;
           inFlight = true;
           try {
-            const res = await fetch(`${base}/api/telemetry`, { signal: AbortSignal.timeout(800) });
+            const res = await fetch(`${base}/api/telemetry`, { cache: 'no-store', signal: AbortSignal.timeout(1800) });
             if (!res.ok) throw new Error();
             const d = await res.json();
-            failCount = 0;
             if (d.serial_connected) {
-              this.setConnectionUI(`ESP32 Conectado (${d.port || 'USB'})`, 'bg-emerald-400 text-emerald-400');
+              this.setConnectionUI(`ESP32 En Línea (${d.port || 'COM'})`, 'bg-emerald-400 text-emerald-400');
               if (d.raw_fsr !== undefined && d.raw_ir !== undefined && d.raw_soil !== undefined) {
                 this.emitRaw(d.raw_fsr, d.raw_ir, d.raw_soil, d.acc_x ?? 0, d.acc_y ?? 0, d.acc_z ?? 256);
               }
             } else {
               lastProcessedRow = null;
-              this.setConnectionUI('Servidor Local · Esperando ESP32 (USB)', 'bg-amber-400 text-amber-400');
+              this.renderDisconnectedState('Servidor Local · Esperando ESP32', 'Conecta la estación ESP32 para recibir los 4 sensores reales.');
             }
           } catch {
-            failCount++;
-            if (failCount >= 8) this.startIdle();
+            lastProcessedRow = null;
+            this.renderDisconnectedState('Reconectando con servidor local...', 'Esperando respuesta de http://localhost:5000 (reconexión automática activa).');
           } finally {
             inFlight = false;
           }
-        }, 250);
+        }, 180);
       }
       async connectWifi(ip) {
         if (location.protocol === 'https:') {
-          showConnectFeedback('El navegador bloquea HTTP desde HTTPS. Usa Conectar USB o abre en http://localhost:5000.', 'warn');
+          showConnectFeedback('El navegador bloquea HTTP desde HTTPS. Abre http://localhost:5000 o usa la App Android por Wi-Fi.', 'warn');
           return;
         }
         try {
-          const res = await fetch(`http://${ip}/api/telemetry`, { signal: AbortSignal.timeout(2000) });
+          const res = await fetch(`http://${ip}/api/telemetry`, { cache: 'no-store', signal: AbortSignal.timeout(2500) });
           if (!res.ok) throw new Error();
           this.stopAll(); this.mode = 'WIFI';
           this.setConnectionUI(`Wi-Fi ESP32 · ${ip}`, 'bg-emerald-400 text-emerald-400');
-          document.getElementById('btnConnectWifi').textContent = 'Desconectar Wi-Fi';
-          showConnectFeedback(`Conectado por Wi-Fi a ${ip}.`, 'ok');
-          addEventLog('Conexión Wi-Fi activa', `Estación en ${ip}`, 'INFO');
+          const bw = document.getElementById('btnConnectWifi');
+          if (bw) bw.textContent = 'Desconectar Wi-Fi';
+          showConnectFeedback(`Conectado por Wi-Fi directo a ${ip}.`, 'ok');
+          addEventLog('Conexión Wi-Fi activa', `Estación ESP32 en ${ip}`, 'INFO');
+
+          let inFlight = false;
           this.pollTimer = setInterval(async () => {
+            if (inFlight) return;
+            inFlight = true;
             try {
-              const r = await fetch(`http://${ip}/api/telemetry`, { signal: AbortSignal.timeout(900) });
+              const r = await fetch(`http://${ip}/api/telemetry`, { cache: 'no-store', signal: AbortSignal.timeout(1500) });
               if (!r.ok) throw new Error();
               const d = await r.json();
-              this.emitRaw(d.raw_fsr ?? 78, d.raw_ir ?? 120, d.raw_soil ?? 3250, d.acc_x ?? 1, d.acc_y ?? 0, d.acc_z ?? 256);
-            } catch { this.startIdle(); }
-          }, 80);
-        } catch {
-          showConnectFeedback(`No respondió http://${ip}/api/telemetry. Revisa tu conexión Wi-Fi.`, 'err');
-        }
-      }
-      async connectUSB() {
-        if (!('serial' in navigator)) {
-          showConnectFeedback('Usa Google Chrome o Microsoft Edge para conectar por USB.', 'err');
-          return;
-        }
-        try {
-          const port = await navigator.serial.requestPort();
-          await port.open({ baudRate: 115200 });
-          this.stopAll(); this.serialPort = port; this.mode = 'SERIAL';
-          this.setConnectionUI('USB Conectado · Sensores en Vivo', 'bg-emerald-400 text-emerald-400');
-          document.getElementById('btnConnectUSB').textContent = 'Desconectar USB';
-          document.getElementById('btnHeaderUSB').innerHTML = '<i class="fa-brands fa-usb text-xs"></i><span>USB Activo</span>';
-          document.getElementById('simControlsBox').classList.add('hidden');
-          document.getElementById('btnToggleSimMode').innerHTML = '<i class="fa-solid fa-flask text-sky-400"></i> Modo Prueba: OFF';
-          showConnectFeedback('Estación ESP32 conectada por cable USB.', 'ok');
-          addEventLog('Sensor USB conectado', 'Lectura real de 6 canales a 115200 baud', 'INFO');
-          this.readSerialLoop();
-        } catch {
-          showConnectFeedback('No se pudo abrir el puerto USB (cierra el Monitor Serie si está abierto).', 'warn');
-        }
-      }
-      async readSerialLoop() {
-        const decoder = new TextDecoderStream();
-        this.serialPort.readable.pipeTo(decoder.writable).catch(() => {});
-        const reader = decoder.readable.getReader();
-        this.serialReader = reader;
-        let buf = '';
-        try {
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            buf += value;
-            let idx;
-            while ((idx = buf.indexOf(';')) !== -1) {
-              const frame = buf.slice(0, idx).trim();
-              buf = buf.slice(idx + 1);
-              if (!frame.startsWith('@,')) continue;
-              const tokens = frame.slice(2).split(',');
-              if (tokens.length >= 9 && tokens[0] === '00' && tokens[1] === '6') {
-                const payload = tokens.slice(0, 8).join(',');
-                let xor = 0;
-                for (let i = 0; i < payload.length; i++) xor ^= payload.charCodeAt(i);
-                if (xor === parseInt(tokens[8], 16)) {
-                  this.emitRaw(+tokens[2], +tokens[3], +tokens[4], +tokens[5], +tokens[6], +tokens[7]);
-                }
+              if (d.serial_connected === false) {
+                this.renderDisconnectedState(`Wi-Fi ${ip} · Esperando ESP32`, 'Servidor conectado, esperando señal del ESP32.');
+              } else if (d.raw_fsr !== undefined && d.raw_ir !== undefined && d.raw_soil !== undefined) {
+                this.setConnectionUI(`Wi-Fi ESP32 · ${ip}`, 'bg-emerald-400 text-emerald-400');
+                this.emitRaw(d.raw_fsr, d.raw_ir, d.raw_soil, d.acc_x ?? 0, d.acc_y ?? 0, d.acc_z ?? 256);
               }
+            } catch {
+              this.setConnectionUI(`Reconectando Wi-Fi (${ip})...`, 'bg-amber-400 text-amber-400');
+            } finally {
+              inFlight = false;
             }
-          }
-        } catch {}
-        this.startIdle();
+          }, 120);
+        } catch {
+          showConnectFeedback(`No respondió http://${ip}/api/telemetry. Verifica que estés conectado al Wi-Fi HELIOS-9-MISSION-CONTROL.`, 'err');
+        }
       }
-      startIdle() {
-        this.stopAll(); this.mode = 'IDLE';
-        lastProcessedRow = null;
-        geoSolver.resetZero();
-        this.setConnectionUI('Esperando Sensores Reales (USB / Wi-Fi)', 'bg-amber-400 text-amber-400');
-        document.getElementById('btnConnectUSB').textContent = 'Conectar USB';
-        document.getElementById('btnHeaderUSB').innerHTML = '<i class="fa-brands fa-usb text-xs"></i><span>Conectar USB</span>';
-        document.getElementById('btnConnectWifi').textContent = 'Conectar Wi-Fi';
-        document.getElementById('btnToggleSimMode').innerHTML = '<i class="fa-solid fa-flask text-sky-400"></i> Modo Prueba: OFF';
-        document.getElementById('simControlsBox').classList.add('hidden');
+      renderDisconnectedState(statusLine, actionLine) {
+        this.setConnectionUI(statusLine, 'bg-amber-400 text-amber-400');
         document.getElementById('sensorDiagBanner').classList.add('hidden');
-
         document.getElementById('valOpFS').textContent = '--';
         document.getElementById('valFS').textContent = '--';
         document.getElementById('valMoisture').textContent = '--';
@@ -1689,37 +1861,26 @@
         document.getElementById('gaugeArc').style.stroke = '#64748B';
         document.getElementById('gaugeArc').style.strokeDashoffset = '314.16';
         document.getElementById('badgeOpState').className = 'inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-amber-500/15 text-amber-400';
-        document.getElementById('badgeOpState').innerHTML = '<i class="fa-solid fa-plug-circle-exclamation text-[10px]"></i> Desconectado';
-        document.getElementById('txtOperatorTitle').textContent = 'Sin Lectura de Sensores';
-        document.getElementById('txtOperatorAction').textContent = 'Conecta tu módulo ESP32 por USB o Wi-Fi para visualizar mediciones reales del talud.';
+        document.getElementById('badgeOpState').innerHTML = '<i class="fa-solid fa-plug-circle-exclamation text-[10px]"></i> Esperando Señal';
+        document.getElementById('txtOperatorTitle').textContent = 'Esperando Sensores Reales';
+        document.getElementById('txtOperatorAction').textContent = actionLine;
       }
-      startSim() {
-        this.stopAll(); this.mode = 'SIM';
-        geoSolver.setSimBaseline();
-        this.setConnectionUI('Modo Prueba (Sin Sensores)', 'bg-sky-400 text-sky-400');
-        document.getElementById('btnConnectUSB').textContent = 'Conectar USB';
-        document.getElementById('btnHeaderUSB').innerHTML = '<i class="fa-brands fa-usb text-xs"></i><span>Conectar USB</span>';
-        document.getElementById('btnConnectWifi').textContent = 'Conectar Wi-Fi';
-        document.getElementById('btnToggleSimMode').innerHTML = '<i class="fa-solid fa-flask text-sky-400"></i> Modo Prueba: ON';
-        document.getElementById('simControlsBox').classList.remove('hidden');
-        let t = 0;
-        this.simTimer = setInterval(() => {
-          t += 0.06;
-          const r = this.rainLevel / 100.0;
-          let fsr = 65 + r * 220 + Math.sin(t) * 3;
-          let ir = 4095 - r * 1800 - Math.cos(t) * 8;
-          let soil = 4095 - r * 2200;
-          let ax = Math.round(1 + r * 35), ay = Math.round(r * 14), az = 256;
-          if (this.simScenario === 'seismic') {
-            fsr = 350 + Math.sin(t * 7) * 35;
-            ir = 1200 + Math.cos(t * 5) * 180;
-            soil = 1850;
-            ax = Math.round(Math.sin(t * 14) * 55);
-            ay = Math.round(Math.cos(t * 12) * 35);
-            az = 256 + Math.round(Math.sin(t * 18) * 45);
-          }
-          this.emitRaw(fsr, ir, soil, ax, ay, az);
-        }, 60);
+      startIdle() {
+        this.stopAll(); this.mode = 'IDLE';
+        lastProcessedRow = null;
+        geoSolver.resetZero();
+        const bw = document.getElementById('btnConnectWifi');
+        if (bw) bw.textContent = 'Conectar Wi-Fi';
+        this.renderDisconnectedState(
+          'Buscando Sensores Reales (Wi-Fi / Servidor)...',
+          'Enciende tu ESP32 o conéctate por Wi-Fi (192.168.4.1) en la pestaña Wi-Fi y Descargas.'
+        );
+        // Watchdog de auto-reconexión cada 2s si estamos en HTTP local
+        if (location.protocol !== 'https:') {
+          this.reconnectTimer = setInterval(() => {
+            if (this.mode === 'IDLE') this.autoDetectLocalServer(false);
+          }, 2000);
+        }
       }
       emitRaw(fsr, ir, soil, ax, ay, az) {
         this.sampleCount++;
@@ -1729,22 +1890,24 @@
     const stream = new TelemetryStreamEngine();
 
     // =========================================================================
-    // 8. UI UPDATES & INTERACTIVITY
+    // 8. UI UPDATES & INTERACTIVITY (100% REAL SENSORS)
     // =========================================================================
+    function updateSensorPill(pillId, lblId, text, active, borderHex) {
+      const p = document.getElementById(pillId);
+      const l = document.getElementById(lblId);
+      if (l) l.textContent = text;
+      if (p) p.style.borderColor = active ? borderHex : '';
+    }
+
     stream.onSample = (fsr, ir, soil, ax, ay, az) => {
-      // Diagnóstico real por sensor cuando hay hardware conectado
       const diagBanner = document.getElementById('sensorDiagBanner');
-      if (stream.mode !== 'SIM') {
-        const issues = [];
-        if (ax === 0 && ay === 0 && Math.abs(az) < 20) issues.push('ADXL345 sin respuesta I2C (revisar GPIO21/22 y CS a 3.3V)');
-        if (soil <= 15) issues.push(`Sonda Humedad en corto a GND (ADC=${soil})`);
-        if (fsr >= 4090) issues.push(`Sensor FSR saturado/en corto (ADC=${fsr})`);
-        if (issues.length > 0) {
-          diagBanner.classList.remove('hidden');
-          diagBanner.innerHTML = '<strong>Anomalía física detectada en sensores:</strong><br>' + issues.map(i => `• ${i}`).join('<br>');
-        } else {
-          diagBanner.classList.add('hidden');
-        }
+      const issues = [];
+      if (ax === 0 && ay === 0 && Math.abs(az) < 20) issues.push('ADXL345 sin respuesta I2C (revisar GPIO21/22 y CS a 3.3V)');
+      if (soil <= 15) issues.push(`Sonda Humedad en corto a GND (ADC=${soil})`);
+      if (fsr >= 4090) issues.push(`Sensor FSR saturado/en corto (ADC=${fsr})`);
+      if (issues.length > 0) {
+        diagBanner.classList.remove('hidden');
+        diagBanner.innerHTML = '<strong>Anomalía física detectada en sensores:</strong><br>' + issues.map(i => `• ${i}`).join('<br>');
       } else {
         diagBanner.classList.add('hidden');
       }
@@ -1761,7 +1924,43 @@
       document.getElementById('valForce').textContent = ch.force.toFixed(2);
       document.getElementById('lblSampleCount').textContent = stream.sampleCount;
 
-      // Radial Gauge Arc (314.16 circumference)
+      // Live 4-Sensor Micro-Activity Pills on Tab 1
+      const s1On = ch.force > 0.02;
+      const s2On = ch.dispMm > 0.05;
+      const s3On = ch.hum > 14.0;
+      const s4On = ch.tiltDeg > 0.15 || ch.vibG > 0.01;
+      updateSensorPill('pillS1', 'lblS1Live', `${Math.round(fsr)} · ${ch.force.toFixed(2)}N`, s1On, '#10B981');
+      updateSensorPill('pillS2', 'lblS2Live', `${Math.round(ir)} · ${ch.dispMm.toFixed(1)}mm`, s2On, '#00F0FF');
+      updateSensorPill('pillS3', 'lblS3Live', `${Math.round(soil)} · ${ch.hum.toFixed(0)}%`, s3On, '#38BDF8');
+      updateSensorPill('pillS4', 'lblS4Live', `${ch.tiltDeg.toFixed(1)}° · ${ch.vibG.toFixed(2)}g`, s4On, '#F59E0B');
+
+      // Live 3D Digital Twin reaction status banner
+      const activeNames = [];
+      if (s1On) activeNames.push(`FSR +${ch.force.toFixed(2)}N`);
+      if (s2On) activeNames.push(`IR +${ch.dispMm.toFixed(1)}mm`);
+      if (s3On) activeNames.push(`HUM ${ch.hum.toFixed(0)}%`);
+      if (s4On) activeNames.push(`ADXL ${ch.tiltDeg.toFixed(1)}°/${ch.vibG.toFixed(2)}g`);
+      const reactEl = document.getElementById('twinLiveReact');
+      if (reactEl) {
+        reactEl.textContent = activeNames.length
+          ? `MOVIMIENTO DETECTADO: ${activeNames.join(' · ')}`
+          : '4 Sensores Reales Activos · Reposo Estable';
+        reactEl.className = activeNames.length
+          ? 'px-3 py-1.5 bg-amber-500/20 backdrop-blur-md border border-amber-400/60 text-[11px] font-num text-amber-300 font-bold'
+          : 'px-3 py-1.5 bg-black/75 backdrop-blur-md border border-white/15 text-[11px] font-num text-emerald-400';
+      }
+
+      // Live Badges on Tab 3 (4 Dedicated Sensor Oscilloscopes)
+      const bFsr = document.getElementById('liveFsrBadge');
+      const bIr = document.getElementById('liveIrBadge');
+      const bSoil = document.getElementById('liveSoilBadge');
+      const bAdxl = document.getElementById('liveAdxlBadge');
+      if (bFsr) bFsr.textContent = `ADC ${Math.round(fsr)} · ${ch.force.toFixed(2)} N`;
+      if (bIr) bIr.textContent = `ADC ${Math.round(ir)} · ${ch.dispMm.toFixed(1)} mm`;
+      if (bSoil) bSoil.textContent = `ADC ${Math.round(soil)} · ${ch.hum.toFixed(1)}%`;
+      if (bAdxl) bAdxl.textContent = `(${Math.round(ax)},${Math.round(ay)},${Math.round(az)}) · ${ch.tiltDeg.toFixed(2)}° · ${ch.vibG.toFixed(3)} g`;
+
+      // Radial Gauge Arc
       const arc = document.getElementById('gaugeArc');
       const pct = Math.max(0.08, Math.min(1.0, res.fs / 2.2));
       arc.style.strokeDashoffset = (314.16 * (1 - pct)).toFixed(1);
@@ -1793,8 +1992,8 @@
         document.documentElement.style.setProperty('--ambient', 'rgba(245, 158, 11, 0.18)');
         badge.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-amber-500/20 text-amber-400';
         badge.innerHTML = '<i class="fa-solid fa-circle-exclamation text-[10px]"></i> Precaución';
-        title.textContent = 'Atención — Suelo Saturado';
-        action.textContent = 'Aumento de humedad o presión detectado. Vigilar drenajes y evitar carga pesada en el borde.';
+        title.textContent = 'Atención — Movimiento / Saturación';
+        action.textContent = 'Cambio relevante detectado en los sensores reales. Vigilar estabilidad del muro.';
         fsState.className = 'font-semibold text-amber-400'; fsState.textContent = 'Precaución (1.00–1.34)';
         ttfEl.textContent = `~${res.ttf.toFixed(1)} h`;
         beaconDot.className = 'w-2 h-2 rounded-full bg-amber-400';
@@ -1805,7 +2004,7 @@
         badge.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400';
         badge.innerHTML = '<i class="fa-solid fa-circle-check text-[10px]"></i> Terreno Seguro';
         title.textContent = 'Estabilidad Óptima';
-        action.textContent = 'El terreno presenta firmeza normal. Sin saturación de agua ni movimiento peligroso en el muro.';
+        action.textContent = 'Los 4 sensores reales están activos y reportan estabilidad normal en tiempo real.';
         fsState.className = 'font-semibold text-emerald-400'; fsState.textContent = 'Seguro (≥ 1.35)';
         ttfEl.textContent = 'Estable';
         beaconDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
@@ -1819,7 +2018,7 @@
             ? `FS ${res.fs.toFixed(2)} · Humedad ${ch.hum.toFixed(0)}%`
             : `FS ${res.fs.toFixed(2)} · Terreno estabilizado`);
         addEventLog(
-          res.alertLevel === 'CRITICAL' ? 'Alerta Crítica Activada' : (res.alertLevel === 'WARNING' ? 'Advertencia de Saturación' : 'Estado Seguro Restablecido'),
+          res.alertLevel === 'CRITICAL' ? 'Alerta Crítica Activada' : (res.alertLevel === 'WARNING' ? 'Advertencia Geotécnica' : 'Estado Seguro Restablecido'),
           msg,
           res.alertLevel
         );
@@ -1830,16 +2029,23 @@
       sparkTilt.push(ch.tiltDeg);
       sparkDisp.push(ch.dispMm);
 
-      twin3D.updatePhysics(ch.tiltDeg, ch.dispMm, ch.hum, res.alertLevel);
-      signalChart.push(ch.force, ch.dispMm, ch.hum, ch.tiltDeg);
+      // Update Ultra-Reactive 3D Digital Twin with ALL 4 real sensors!
+      twin3D.updatePhysics(ch.tiltDeg, ch.dispMm, ch.hum, res.alertLevel, ch.force, ch.vibG);
+
+      // Push real sensor values into all 4 dedicated oscilloscopes
+      chartFsr.push(fsr);
+      chartIr.push(ir);
+      chartSoil.push(soil);
+      chartAdxl.push(ch.tiltDeg, ch.vibG);
       if (!document.getElementById('tab-analysis').classList.contains('hidden')) {
-        signalChart.render();
+        allSensorCharts.forEach(c => c.render());
         mohrChart.render(res.sigma_eff, res.shearRes, res.alertLevel);
       }
+
       lastProcessedRow = {
         ts: new Date().toISOString(),
         timeStr: new Date().toLocaleTimeString('es-CO', { hour12: false }),
-        momento: stream.mode === 'SIM' ? `SIM_${flightRecorder.momento}` : flightRecorder.momento,
+        momento: flightRecorder.momento,
         rawFsr: Math.round(fsr), force: ch.force,
         rawIr: Math.round(ir), dispMm: ch.dispMm,
         rawSoil: Math.round(soil), hum: ch.hum,
@@ -1850,36 +2056,6 @@
         flightRecorder.push(lastProcessedRow);
       }
     };
-
-    function onRainSlider(val) {
-      audioEngine.init();
-      const v = Number(val);
-      stream.simScenario = 'normal';
-      stream.rainLevel = v;
-      document.getElementById('lblRainIntensity').textContent = `${v}% Lluvia`;
-      if (stream.mode === 'SERVER') {
-        fetch(`${stream.localBase || ''}/api/control`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sim_storm: v >= 45 })
-        }).catch(() => {});
-      }
-    }
-
-    function setQuickScenario(mode) {
-      audioEngine.init();
-      stream.simScenario = mode;
-      const slider = document.getElementById('sliderRain');
-      if (mode === 'normal') { slider.value = 0; stream.rainLevel = 0; document.getElementById('lblRainIntensity').textContent = '0% Lluvia'; }
-      else if (mode === 'rain') { slider.value = 80; stream.rainLevel = 80; document.getElementById('lblRainIntensity').textContent = '80% Lluvia'; }
-      else { slider.value = 95; stream.rainLevel = 95; document.getElementById('lblRainIntensity').textContent = 'Sismo + Lluvia'; }
-
-      if (stream.mode === 'SERVER') {
-        fetch(`${stream.localBase || ''}/api/control`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sim_storm: mode !== 'normal' })
-        }).catch(() => {});
-      }
-    }
 
     function setTwinView(v) { twin3D.setView(v); }
     function toggleAutoOrbit() {
@@ -1904,9 +2080,9 @@
       if (name === 'data') flightRecorder.renderTables(true);
       if (name === 'analysis') {
         setTimeout(() => {
-          signalChart.resize(); mohrChart.resize(); initGISMap();
-          if (window._mapGIS) window._mapGIS.invalidateSize();
-        }, 80);
+          allSensorCharts.forEach(c => { c.resize(); c.render(); });
+          mohrChart.resize();
+        }, 60);
       }
     }
 
@@ -1934,47 +2110,28 @@
       addEventLog('Sensores tarados a cero', 'Posición actual fijada como referencia base (0.0 mm / 0.00°)', 'INFO');
     }
 
-    function toggleDemoSim() {
-      audioEngine.init();
-      if (stream.mode === 'SIM') {
-        geoSolver.resetZero();
-        stream.autoDetectLocalServer(false).then(ok => { if (!ok) stream.startIdle(); });
-      } else {
-        stream.startSim();
-      }
-    }
-
-    function toggleSerialConnection() { if (stream.mode === 'SERIAL') stream.startIdle(); else stream.connectUSB(); }
     function toggleWifiConnection() {
       if (stream.mode === 'WIFI') stream.startIdle();
       else stream.connectWifi((document.getElementById('inputWifiIp').value || '192.168.4.1').trim());
     }
-    function toggleOscilloscopeMode() { document.getElementById('btnToggleDSO').textContent = signalChart.toggleMode(); }
     function exportData(fmt) { flightRecorder.export(fmt); }
     function autoDetectLocalServer(manual) { return stream.autoDetectLocalServer(manual); }
 
-    let mapInitialized = false;
-    function initGISMap() {
-      if (mapInitialized || typeof L === 'undefined') return;
-      const map = L.map('mapGIS').setView([4.5521, -74.0512], 14);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap · SAT-GEO' }).addTo(map);
-      L.circle([4.5521, -74.0512], { color: '#10b981', fillColor: '#10b981', fillOpacity: 0.2, radius: 180 }).addTo(map)
-        .bindPopup('Estación SAT-GEO K4+800');
-      window._mapGIS = map; mapInitialized = true;
-    }
-
-    let deferredPrompt = null;
-    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; });
-    function installPWA() {
-      if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt.userChoice.then(() => { deferredPrompt = null; }); }
-      else showConnectFeedback('En Chrome/Edge puedes instalar desde el ícono "Instalar" en la barra de direcciones.', 'ok');
-    }
-
     window.addEventListener('DOMContentLoaded', () => {
-      twin3D.init();
-      window.addEventListener('resize', () => { twin3D.resize(); signalChart.resize(); mohrChart.resize(); });
+      // Conectar a telemetría PRIMERO (antes de compilar WebGL) para latencia cero
       stream.autoDetectLocalServer(false).then(ok => { if (!ok) stream.startIdle(); });
-      if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+      twin3D.init();
+      window.addEventListener('resize', () => {
+        twin3D.resize();
+        allSensorCharts.forEach(c => { c.resize(); c.render(); });
+        mohrChart.resize();
+      });
+      if ('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      } else if ('serviceWorker' in navigator) {
+        // Desregistrar SW en localhost para jamás servir HTML viejo en caché
+        navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
+      }
     });
   </script>
 </body>

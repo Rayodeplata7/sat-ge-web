@@ -287,7 +287,7 @@ def serial_worker():
                                         base_ax, base_ay, base_az = float(acc_x), float(acc_y), float(acc_z)
                                         vib_peak = 0.0
 
-                                ema_fsr = float(raw_f) if ema_fsr is None else (ema_fsr * 0.80 + raw_f * 0.20)
+                                ema_fsr = float(raw_f) if ema_fsr is None else (ema_fsr * 0.65 + raw_f * 0.35)
                                 if not has_base:
                                     tare_n += 1
                                     sum_fsr += ema_fsr
@@ -304,18 +304,18 @@ def serial_worker():
                                     if tare_n >= 10:
                                         has_base = True
 
-                                # 1) FSR-406 con banda muerta anti-jitter (55 cuentas ADC)
-                                eff_fsr = max(0.0, abs(ema_fsr - base_fsr) - 55.0)
-                                f = round(min(4.4, eff_fsr * 0.008), 2)
+                                # 1) FSR-406 ultra-sensible (banda muerta minima 14 ADC sobre piso real de ruido)
+                                eff_fsr = max(0.0, abs(ema_fsr - base_fsr) - 14.0)
+                                f = round(min(4.4, eff_fsr * 0.025), 2)
 
-                                # 2) Sonda Humedad Suelo (GPIO32, 4095 seco -> 1295 saturado)
-                                h = round(max(8.0, min(100.0, ((4095.0 - raw_soil) / 2800.0) * 100.0 + 8.0)), 1)
+                                # 2) Sonda Humedad Suelo ultra-sensible (GPIO32: 4092 seco -> saturado)
+                                h = round(max(8.0, min(100.0, 8.0 + ((4092.0 - raw_soil) / 1500.0) * 92.0)), 1)
 
-                                # 3) Sensor IR P/N 1102 relativo a reposo (banda muerta 35 ADC)
+                                # 3) Sensor IR P/N 1102 ultra-sensible (piso ruido = 0, banda muerta 4 ADC)
                                 delta_ir = abs(raw_ir - base_ir)
-                                d = round(min(45.0, max(0.0, (delta_ir - 35.0) * 0.015)), 2)
+                                d = round(min(50.0, max(0.0, (delta_ir - 4.0) * 0.045)), 2)
 
-                                # 4) ADXL345 ángulo 3D relativo al vector de montaje + vibración pasa-altos
+                                # 4) ADXL345 ultra-sensible: angulo 3D relativo (0.25°) + micro-vibracion (0.015g)
                                 mag1 = math.sqrt(acc_x * acc_x + acc_y * acc_y + acc_z * acc_z)
                                 mag2 = math.sqrt(base_ax * base_ax + base_ay * base_ay + base_az * base_az)
                                 if mag1 > 10.0 and mag2 > 10.0:
@@ -323,12 +323,12 @@ def serial_worker():
                                     raw_tilt = math.degrees(math.acos(cos_a))
                                 else:
                                     raw_tilt = 0.0
-                                tilt_deg = 0.0 if raw_tilt < 0.8 else round(raw_tilt, 2)
+                                tilt_deg = round((raw_tilt - 0.25) * 2.2, 2) if raw_tilt > 0.25 else 0.0
 
                                 dv = math.sqrt((acc_x - prev_ax) ** 2 + (acc_y - prev_ay) ** 2 + (acc_z - prev_az) ** 2) / 256.0
                                 prev_ax, prev_ay, prev_az = float(acc_x), float(acc_y), float(acc_z)
-                                vib_peak = max(vib_peak * 0.85, dv if dv > 0.04 else 0.0)
-                                v = round(vib_peak, 3)
+                                vib_peak = max(vib_peak * 0.84, dv)
+                                v = round((vib_peak - 0.015) * 3.5, 3) if vib_peak > 0.015 else 0.0
 
                                 last_raw_f, last_raw_ir = float(raw_f), float(raw_ir)
                                 last_ax, last_ay, last_az = float(acc_x), float(acc_y), float(acc_z)
@@ -365,7 +365,7 @@ def serial_worker():
                     ser = None
                     with state_lock:
                         state["serial_connected"] = False
-                        state["port"] = "SIMULADOR"
+                        state["port"] = "SIN HARDWARE"
                     break
 
             with state_lock:
@@ -383,27 +383,13 @@ def serial_worker():
                         state["acc_y"] = acc_y
                         state["acc_z"] = acc_z
                         state["tilt"] = tilt_deg
-                else:
-                    # Modo Simulación Activa (para probar sin hardware o para demos)
-                    if state["sim_storm"]:
-                        # Simulación de tormenta con colapso progresivo
-                        sim_t += 0.2
-                        state["hum"] = min(95.0, round(18.0 + sim_t * 3.5, 1))
-                        state["force"] = min(4.10, round(0.20 + (sim_t**1.4) * 0.12, 2))
-                        state["disp"] = min(22.0, round(0.5 + (sim_t**1.6) * 0.35, 1))
-                        state["vib"] = round(0.04 + (0.45 if sim_t > 8 else 0.08), 2)
-                        state["raw_fsr"] = int(round(65.0 + (state["force"] / 0.01467)))
-                        state["raw_ir"] = int(round(((5.0 - max(0.2, 5.0 - state["disp"] / 10.0)) / 4.6) * 4095.0))
-                        state["raw_soil"] = int(round(3800.0 - (state["hum"] / 100.0) * 2600.0))
-                        state["acc_z"] = int(round(256.0 + state["vib"] * 256.0))
-                    elif not state["cable_fault"] and not state["serial_connected"]:
-                        # Sin hardware conectado y sin simulación activa: reportar DESCONECTADO (cero datos inventados)
-                        state["port"] = "SIN HARDWARE"
-                        state["status"] = "DESCONECTADO"
-                        state["ttf"] = "--"
-                        sim_t = 0.0
+                elif not state["cable_fault"] and not state["serial_connected"]:
+                    # Sin hardware conectado: reportar DESCONECTADO (100% real, cero simulacion)
+                    state["port"] = "SIN HARDWARE"
+                    state["status"] = "DESCONECTADO"
+                    state["ttf"] = "--"
 
-                if read_success or state["sim_storm"] or state["cable_fault"]:
+                if read_success or state["cable_fault"]:
                     fs, status, ttf = compute_geotech(
                         state["hum"], state["force"], state["disp"], state["vib"], state["cable_fault"]
                     )

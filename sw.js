@@ -1,4 +1,4 @@
-const CACHE_NAME = 'helios9-sat-geo-v5';
+const CACHE_NAME = 'helios9-sat-geo-v6';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -25,12 +25,16 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
-  // Nunca cachear endpoints de telemetría en tiempo real
-  if (url.pathname.includes('/api/')) {
+  // Nunca cachear endpoints de telemetría ni servidor local (localhost / 127.0.0.1)
+  if (
+    url.pathname.includes('/api/') ||
+    url.hostname === 'localhost' ||
+    url.hostname === '127.0.0.1'
+  ) {
     return;
   }
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: 'no-cache' })
       .then((res) => {
         if (res && res.status === 200 && e.request.method === 'GET' && url.origin === self.location.origin) {
           const clone = res.clone();
